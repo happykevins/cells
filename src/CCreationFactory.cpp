@@ -159,6 +159,7 @@ size_t CCreationFactory::dispatch_result()
 					if ( postload )
 					{
 						/** 风险！cdf互相需求会导致无尽循环,所以不对cdf级联
+						// TODO: 加入一个CDF索引表，在需求CDF前检查状态，如果已经需求过就不再需求
 						subcell->m_celltype == CCell::cdf ?
 								m_host->post_desire_cdf(subcell->m_name.c_str()) :
 								m_host->post_desire_file(subcell->m_name.c_str());
@@ -196,8 +197,9 @@ size_t CCreationFactory::dispatch_result()
 void CCreationFactory::on_work_finished(CCell* cell)
 {
 	assert(cell);
-	CMutexScopeLock(m_finished.mutex());
+	m_finished.lock();
 	m_finished.push(cell);
+	m_finished.unlock();
 }
 
 } /* namespace cells */

@@ -26,6 +26,7 @@ extern const char* CDF_LOAD;			//= "load"		boolean:		0 | 1
 extern const char* CDF_CELL_TYPE;		//= "type"		celltype_t: 	0 | 1
 extern const char* CDF_CELL_NAME;		//= "name"		string
 extern const char* CDF_CELL_HASH;		//= "hash"		string
+extern const char* CDF_CELL_SIZE;		//= "size"		size_t
 extern const char* CDF_CELL_LOAD;		//= "load"		boolean:		0 | 1
 
 /*
@@ -51,7 +52,7 @@ public:
 
 	enum cellerror_t
 	{
-		no_error, openfile_failed, download_failed, bad_cdf
+		no_error, openfile_failed, download_failed, verify_failed
 	};
 
 	// 用于按照priority的排序

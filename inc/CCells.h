@@ -13,21 +13,22 @@
 
 //
 // 待实现功能列表
-// TODO: 候选url多次尝试
-// TODO: 校验码逻辑的实现，文件校验，自动获取校验码
+// TODO: *候选url多次尝试,curl是否已经支持是否需要支持？
 // TODO: 压缩，解压部分的实现zlib/7z
 // TODO: *实现函数闭包，实现每次投递的相关性
 // TODO: 下载限速及拥塞控制
 // TODO: tick_dispatch分发请求时对factory的负载判断
 // TODO: 监测系统接口
 // TODO: 生成cdf文件及相关工具接口
-// TODO: 对创建文件夹，文件名其那后"/"等细节处理
+// TODO: 对创建文件夹，文件名其那后"/"等细节处理,更健壮
 // TODO: !!curl目前的用法如果远程主机连接不成功，会阻塞住好长时间，如何设置超时时间
 // TODO: 对url列表的连接进行测速，优先选用最快的url，重试下载的cell是否要调整优先级，以免阻塞后续请求
 // TODO: *退化成可完全使用单线程模型
 // TODO: Rule的默认值,libcurl用户可控制是否内部初始化
 // TODO: 提供一个批量任务all-done的回调方式
 // TODO: 对加载线程的负载控制，可以启动多线程，但不一定都使用，根据负载来调节，减少libcurl阻塞带来的性能瓶颈
+// TODO: 对于一些http服务器，如果请求的url无效，则会返回错误html文件，需要通过hash verfiy来辨认文件正确性
+// TODO: 支持仅本地验证模式，不会进行下载
 //
 namespace cells
 {
@@ -46,10 +47,12 @@ struct CRegulation
 	std::string local_url;
 	unsigned int worker_thread_num;
 	bool auto_dispatch;
+	bool only_local_mode;
+	bool enable_ghost_mode;
 };
 
 /*
- * 回调函数
+ * CFunctorBase-封装函数闭包
  */
 class CFunctorBase
 {
@@ -57,17 +60,33 @@ public:
 	virtual ~CFunctorBase(){}
 	virtual void operator() (const char* name, int type, int error_no) = 0;
 };
-
 typedef CMap<void*, CFunctorBase*> observeridx_t;
 
+class CFunctorG3 : public CFunctorBase
+{
+public:
+	typedef void (*cb_func_g3_t)(const char* name, int type, int error_no);
+	CFunctorG3(cb_func_g3_t cb_func) : m_cb_func(cb_func) {}
+	CFunctorG3(const CFunctorG3& other) : m_cb_func(other.m_cb_func) {}
+	CFunctorG3() : m_cb_func(NULL) {}
+	virtual ~CFunctorG3(){ m_cb_func = NULL; }
+	virtual void operator() (const char* name, int type, int error_no)
+	{
+		m_cb_func(name, type, error_no);
+	}
+
+protected:
+	cb_func_g3_t m_cb_func;
+};
+
 template<typename T>
-class CFunctor : public CFunctorBase
+class CFunctorM3 : public CFunctorBase
 {
 public:
 	typedef void (T::*mfunc_t)(const char* name, int type, int error_no);
-	CFunctor(T* _t, mfunc_t _f) : m_target(_t), m_func(_f) {}
-	CFunctor(const CFunctor<T>& other) : m_target(other.m_target), m_func(other.m_func) {}
-	void operator=(const CFunctor<T>& other)
+	CFunctorM3(T* _t, mfunc_t _f) : m_target(_t), m_func(_f) {}
+	CFunctorM3(const CFunctorM3<T>& other) : m_target(other.m_target), m_func(other.m_func) {}
+	void operator=(const CFunctorM3<T>& other)
 	{
 		m_target = other.m_target;
 		m_func = other.m_func;
@@ -83,10 +102,15 @@ protected:
 	mfunc_t m_func;
 };
 
-template<typename T>
-CFunctor<T>* make_functor(T* _t, typename CFunctor<T>::mfunc_t _f)
+template<typename F>
+CFunctorG3* make_functor_g3(F& _f)
 {
-	return new CFunctor<T>(_t, _f);
+	return new CFunctorG3(_f);
+}
+template<typename T>
+CFunctorM3<T>* make_functor_m3(T* _t, typename CFunctorM3<T>::mfunc_t _f)
+{
+	return new CFunctorM3<T>(_t, _f);
 }
 
 /*

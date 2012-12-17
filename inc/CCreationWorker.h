@@ -17,6 +17,8 @@ namespace cells
 
 class CCreationFactory;
 
+#define CWORKER_BUFFER_SIZE 16384
+
 /*
  * CCreationWorker
  * 	创造cell工作线程
@@ -37,9 +39,9 @@ public:
 	size_t workload();
 
 protected:
-	virtual bool work_verify_local(CCell* cell);
-	virtual bool work_download_remote(CCell* cell);
-	virtual bool work_patchup_cell(CCell* cell);
+	virtual bool work_verify_local(CCell* cell, const char* localurl);
+	virtual bool work_download_remote(CCell* cell, const char* localurl);
+	virtual bool work_patchup_cell(CCell* cell, const char* localurl);
 	virtual void work_finished(CCell* cell, bool result);
 	virtual bool congestion_control();
 
@@ -53,6 +55,7 @@ private:
 	sem_t m_sem;
 	CPriorityQueue<CCell*, CCell::less_t> m_queue;
 	CDownloader m_downloadhandle;
+	char m_databuf[CWORKER_BUFFER_SIZE];
 
 	friend class CDownloader;
 };
