@@ -2,6 +2,16 @@
 *.slo
 *.lo
 *.o
+*.obj
+
+# msvc
+*.ncb
+*.idb
+*.pdb
+*.suo
+*.user
+Debug
+Release
 
 # Compiled Dynamic libraries
 #*.so
