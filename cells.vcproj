@@ -175,6 +175,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\inc\cells.h"
+				>
+			</File>
+			<File
 				RelativePath=".\inc\CPlatform.h"
 				>
 			</File>

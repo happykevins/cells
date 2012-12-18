@@ -95,7 +95,7 @@ void CCreationWorker::do_work()
 
 		if ( m_host->m_host->regulation().only_local_mode )
 		{
-			cell->m_errorno = CCell::openfile_failed;
+			cell->m_errorno = loaderr_openfile_failed;
 			work_finished(cell);
 			return;
 		}
@@ -113,7 +113,7 @@ void CCreationWorker::do_work()
 
 			if ( !work_patchup_cell(cell, localurl.c_str()) )
 			{
-				cell->m_errorno = CCell::patchup_failed;
+				cell->m_errorno = loaderr_patchup_failed;
 			}
 
 			work_finished(cell);
@@ -131,7 +131,7 @@ void CCreationWorker::do_work()
 			// patchup local file
 			if ( !work_patchup_cell(cell, localurl.c_str()) )
 			{
-				cell->m_errorno = CCell::patchup_failed;
+				cell->m_errorno = loaderr_patchup_failed;
 			}
 
 			work_finished(cell);
@@ -140,7 +140,7 @@ void CCreationWorker::do_work()
 		else
 		{
 			// 虽然本地验证失败，但这里不用设置错误码，后面还要下载再验证
-			//cell->m_errorno == CCell::verify_failed;
+			//cell->m_errorno == loaderr_verify_failed;
 		}
 
 		// close file
@@ -155,7 +155,7 @@ void CCreationWorker::do_work()
 	fp = fopen(localurl.c_str(), "wb+");
 	if (!fp)
 	{
-		cell->m_errorno = CCell::openfile_failed;
+		cell->m_errorno = loaderr_openfile_failed;
 		work_finished(cell);
 		return;
 	}
@@ -173,19 +173,19 @@ void CCreationWorker::do_work()
 		// decompress
 		if ( m_host->m_host->regulation().zip_type != e_nozip )
 		{
-			if ( cell->m_celltype == CCell::common || 
-				(cell->m_celltype == CCell::cdf && m_host->m_host->regulation().zip_cdf) )
+			if ( cell->m_celltype == e_celltype_common || 
+				(cell->m_celltype == e_celltype_cdf && m_host->m_host->regulation().zip_cdf) )
 			{
 				if ( !work_decompress(localurl.c_str(), localtmpurl.c_str()) )
 				{
 					printf("file decompress failed: name=%s;\n", cell->m_name.c_str());
-					cell->m_errorno = CCell::decompress_failed;
+					cell->m_errorno = loaderr_decompress_failed;
 				}
 			}
 		}
 
 		// verify downloaded file
-		if ( cell->m_errorno == CCell::no_error && !cell->m_hash.empty() )
+		if ( cell->m_errorno == loaderr_ok && !cell->m_hash.empty() )
 		{
 			fp = fopen(localurl.c_str(), "rb");
 			if (fp)
@@ -193,23 +193,23 @@ void CCreationWorker::do_work()
 				cell->m_stream = fp;
 				if ( !work_verify_local(cell) )
 				{
-					cell->m_errorno = CCell::verify_failed;
+					cell->m_errorno = loaderr_verify_failed;
 				}
 				cell->m_stream = NULL;
 				fclose(fp);
 			}
 			else
 			{
-				cell->m_errorno = CCell::openfile_failed;
+				cell->m_errorno = loaderr_openfile_failed;
 			}
 		}
 
 		// patchup
-		if ( cell->m_errorno == CCell::no_error )
+		if ( cell->m_errorno == loaderr_ok )
 		{
 			if ( !work_patchup_cell(cell, localurl.c_str()) )
 			{
-				cell->m_errorno = CCell::patchup_failed;
+				cell->m_errorno = loaderr_patchup_failed;
 			}
 		}
 	}
@@ -220,7 +220,7 @@ void CCreationWorker::do_work()
 		//
 		cell->m_stream = NULL;
 		fclose(fp);
-		cell->m_errorno = CCell::download_failed;
+		cell->m_errorno = loaderr_download_failed;
 	}
 
 	work_finished(cell);	
@@ -341,7 +341,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 	// setup cdf
 	TiXmlDocument doc;
-	if ( cell->m_celltype == CCell::cdf && doc.LoadFile(localurl) )
+	if ( cell->m_celltype == e_celltype_cdf && doc.LoadFile(localurl) )
 	{
 		std::set<const char*> name_set;
 		CCDF* ret_cdf = new CCDF(cell);
@@ -354,7 +354,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				cells_attr->Next())
 			{
 				//printf("%s=%s\n", cells_attr->Name(), cells_attr->Value());
-				ret_cdf->m_props.insert(
+				cell->m_props.insert(
 					std::make_pair(cells_attr->Name(),
 					cells_attr->Value()));
 			}
@@ -372,10 +372,10 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 				const char* cell_hash = cell_section->Attribute(CDF_CELL_HASH);
 
-				int cell_type = CUtils::atoi(cell_section->Attribute(CDF_CELL_TYPE));
+				ecelltype_t cell_type = (ecelltype_t)CUtils::atoi(cell_section->Attribute(CDF_CELL_TYPE));
 				// 健壮性检测：异常值修正
-				if (cell_type != CCell::cdf)
-					cell_type = CCell::common;
+				if (cell_type != e_celltype_cdf)
+					cell_type = e_celltype_common;
 
 				CCell* cell = new CCell(cell_name, cell_hash, cell_type);
 
@@ -399,12 +399,12 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 	doc.Clear();
 
 	// cdf file
-	if ( !cdf_result && cell->m_celltype == CCell::cdf )
+	if ( !cdf_result && cell->m_celltype == e_celltype_cdf )
 	{
 		printf("cdf setup failed!: name=%s\n", cell->m_name.c_str() );
 		return false;
 	}
-	else if ( cell->m_celltype == CCell::cdf )
+	else if ( cell->m_celltype == e_celltype_cdf )
 	{
 		printf("cdf setup success: name=%s, child=%d\n", cell->m_name.c_str(), (int)cell->get_cdf()->m_subcells.size());
 		return true;

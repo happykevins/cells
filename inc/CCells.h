@@ -8,7 +8,7 @@
 #ifndef CCELLS_H_
 #define CCELLS_H_
 
-#include <string>
+#include "cells.h"
 #include "CContainer.h"
 
 //
@@ -34,101 +34,7 @@ namespace cells
 class CCell;
 class CCreationFactory;
 
-#define CELLS_DEFAULT_WORKERNUM		2
-#define CELLS_DEFAULT_ZIPTMP_SUFFIX	".tmp"
-
-// 压缩类型
-enum eziptype_t
-{
-	e_nozip = 0,
-	e_zlib,
-};
-
-/*
- * 定制cells系统规则
- */
-struct CRegulation
-{
-	std::vector<std::string> remote_urls;
-	std::string local_url;
-	size_t worker_thread_num;
-	bool auto_dispatch;
-	bool only_local_mode;				// 是否开启本地模式：本地文件不匹配也不进行download操作
-	bool enable_ghost_mode;				// 是否开启ghost模式
-	bool enable_free_download;			// 是否开启自由下载模式：(默认关闭)，开启此模式可以自由需求cdf没有描述过的文件
-	eziptype_t zip_type;				// 压缩类型：0-未压缩；1-zlib
-	bool zip_cdf;						// cdf文件是否为压缩格式
-	const char* zip_tmp_suffix;			// 解压缩临时文件后缀
-
-	// default value
-	CRegulation() : worker_thread_num(CELLS_DEFAULT_WORKERNUM), auto_dispatch(false), only_local_mode(false), 
-		enable_ghost_mode(false), enable_free_download(false), zip_type(e_nozip), zip_cdf(false),
-		zip_tmp_suffix(CELLS_DEFAULT_ZIPTMP_SUFFIX)
-	{}
-};
-
-/*
- * CFunctorBase-封装函数闭包
- */
-class CFunctorBase
-{
-public:
-	virtual ~CFunctorBase(){}
-	virtual void operator() (const char* name, int type, int error_no) = 0;
-};
 typedef CMap<void*, CFunctorBase*> observeridx_t;
-
-class CFunctorG3 : public CFunctorBase
-{
-public:
-	typedef void (*cb_func_g3_t)(const char* name, int type, int error_no);
-	CFunctorG3(cb_func_g3_t cb_func) : m_cb_func(cb_func) {}
-	CFunctorG3(const CFunctorG3& other) : m_cb_func(other.m_cb_func) {}
-	CFunctorG3() : m_cb_func(NULL) {}
-	virtual ~CFunctorG3(){ m_cb_func = NULL; }
-	virtual void operator() (const char* name, int type, int error_no)
-	{
-		m_cb_func(name, type, error_no);
-	}
-
-protected:
-	cb_func_g3_t m_cb_func;
-};
-
-template<typename T>
-class CFunctorM3 : public CFunctorBase
-{
-public:
-	typedef void (T::*mfunc_t)(const char* name, int type, int error_no);
-	CFunctorM3(T* _t, mfunc_t _f) : m_target(_t), m_func(_f) {}
-	CFunctorM3(const CFunctorM3<T>& other) : m_target(other.m_target), m_func(other.m_func) {}
-	void operator=(const CFunctorM3<T>& other)
-	{
-		m_target = other.m_target;
-		m_func = other.m_func;
-	}
-
-	void operator() (const char* name, int type, int error_no)
-	{
-		(m_target->*m_func)(name, type, error_no);
-	}
-
-protected:
-	T* m_target;
-	mfunc_t m_func;
-};
-
-template<typename F>
-CFunctorG3* make_functor_g3(F& _f)
-{
-	return new CFunctorG3(_f);
-}
-template<typename T>
-CFunctorM3<T>* make_functor_m3(T* _t, typename CFunctorM3<T>::mfunc_t _f)
-{
-	return new CFunctorM3<T>(_t, _f);
-}
-
 typedef CMap<std::string, class CCell*> cellidx_t;
 
 /*
@@ -224,7 +130,7 @@ public:
 	void remove_observer(void* target);
 
 protected:
-	CCell* post_desired(const char* name, int type, int priority);
+	CCell* post_desired(const char* name, ecelltype_t type, int priority);
 	void notify_observers(CCell* cell);
 	static void* cells_working(void* context);
 

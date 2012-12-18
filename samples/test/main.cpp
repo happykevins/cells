@@ -12,26 +12,39 @@
 #include <algorithm>
 #include "zpip.h"
 
+using namespace std;
+using namespace cells;
+
 class Observer
 {
 public:
-	void on_finish(const char* name, int type, int error_no)
+	void on_finish(const string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props)
 	{
-		printf("**Observer::on_finish: name=%s; type=%d; error=%d;\n", name, type, error_no);
+		printf("**Observer::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
+		printf("--**Props:");
+		for (properties_t::const_iterator it = props.begin(); it != props.end(); it++)
+		{
+			printf("[%s=%s] ", it->first.c_str(), it->second.c_str());
+		}
+		printf("\n");
 	}
 };
 
 bool cdf_ok = false;
-void on_finish(const char* name, int type, int error_no)
+void on_finish(const string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props)
 {
 	cdf_ok = true;
-	printf("**Global::on_finish: name=%s; type=%d; error=%d;\n", name, type, error_no);
+	printf("**Global::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
+	printf("--**Props:");
+	for (properties_t::const_iterator it = props.begin(); it != props.end(); it++)
+	{
+		printf("[%s=%s] ", it->first.c_str(), it->second.c_str());
+	}
+	printf("\n");
 }
 
 int main(int argc, char *argv[])
-{
-	using namespace std;
-	using namespace cells;
+{	
 	Observer obs;
 
 	CCells cells;
@@ -39,6 +52,7 @@ int main(int argc, char *argv[])
 	rule.auto_dispatch = true;
 	rule.only_local_mode = false;
 	rule.zip_type = e_zlib;
+	rule.zip_cdf = false;
 	rule.worker_thread_num = 2;
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("http://192.168.0.1/upload/");
@@ -46,18 +60,18 @@ int main(int argc, char *argv[])
 	cells.initialize(rule);
 	//cells.suspend();
 
-	cells.register_observer(&on_finish, make_functor_g3(on_finish));
-	cells.register_observer(&obs, make_functor_m3(&obs, &Observer::on_finish));
+	cells.register_observer(&on_finish, make_functor_g(on_finish));
+	cells.register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
 	cells.post_desire_cdf("cdf.xml");
 
-	while (!cdf_ok)
-	{
-		CUtils::sleep(1000);
-	}
+	//while (!cdf_ok)
+	//{
+	//	CUtils::sleep(1000);
+	//}
 
-	cells.post_desire_file("baby.jpg");
-	cells.post_desire_file("music.ogg");
+	//cells.post_desire_file("baby.jpg");
+	//cells.post_desire_file("music.ogg");
 
 	//CUtils::sleep(5000);
 	//cells.resume();

@@ -141,14 +141,14 @@ bool CCells::post_desire_cdf(const char* name, int priority /*= priority_exclusi
 {
 	if ( name == NULL ) return false;
 
-	return post_desired(name, CCell::cdf, priority) != NULL;
+	return post_desired(name, e_celltype_cdf, priority) != NULL;
 }
 
 bool CCells::post_desire_file(const char* name, int priority /*= priority_default*/)
 {
 	if ( name == NULL ) return false;
 
-	return post_desired(name, CCell::common, priority) != NULL;
+	return post_desired(name, e_celltype_common, priority) != NULL;
 }
 
 void CCells::register_observer(void* target, CFunctorBase* func)
@@ -170,7 +170,7 @@ void CCells::remove_observer(void* target)
 	m_observers.unlock();
 }
 
-CCell* CCells::post_desired(const char* name, int type, int priority)
+CCell* CCells::post_desired(const char* name, ecelltype_t type, int priority)
 {
 	assert(name);
 	if ( priority > priority_exclusive ) priority = priority_exclusive;
@@ -184,7 +184,7 @@ CCell* CCells::post_desired(const char* name, int type, int priority)
 	cellidx_t::iterator it = m_cellidx.find(name);
 	if (it == m_cellidx.end())
 	{
-		if ( m_rule.enable_free_download || type == CCell::cdf )
+		if ( m_rule.enable_free_download || type == e_celltype_cdf )
 		{
 			// desire a new cell
 			cell = new CCell(name, "", type);
@@ -246,9 +246,10 @@ void CCells::notify_observers(CCell* cell)
 			it != m_observers.end(); it++)
 	{
 		(*(it->second))(
-				cell->m_name.c_str(),
+				cell->m_name,
 				cell->m_celltype,
-				cell->m_errorno);
+				cell->m_errorno,
+				cell->m_props);
 	}
 	m_observers.unlock();
 }

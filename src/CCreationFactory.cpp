@@ -85,7 +85,7 @@ size_t CCreationFactory::dispatch_result()
 		m_finished.unlock();
 
 		// 成功
-		if ( cell->m_errorno == CCell::no_error )
+		if ( cell->m_errorno == loaderr_ok )
 		{
 			dispatch_num++;
 
@@ -95,7 +95,7 @@ size_t CCreationFactory::dispatch_result()
 					(int)cell->m_download_times);
 
 			// 处理cdf
-			if ( cell->m_celltype == CCell::cdf && cell->get_cdf() )
+			if ( cell->m_celltype == e_celltype_cdf && cell->get_cdf() )
 			{
 				setup_cdf(cell);
 			}
@@ -104,11 +104,11 @@ size_t CCreationFactory::dispatch_result()
 			cell->m_cellstate = CCell::verified;
 		}
 		// 下载失败，再做一下尝试
-		else if (cell->m_errorno == CCell::download_failed
+		else if (cell->m_errorno == loaderr_download_failed
 				&& cell->m_download_times < m_host->regulation().remote_urls.size())
 		{
 			cell->m_cellstate = CCell::unknow;
-			cell->m_errorno = CCell::no_error;
+			cell->m_errorno = loaderr_ok;
 			post_work(cell);
 			continue;
 		}
@@ -116,7 +116,7 @@ size_t CCreationFactory::dispatch_result()
 		else
 		{
 			// local only mode hack!
-			if ( m_host->regulation().only_local_mode && cell->m_errorno == CCell::verify_failed )
+			if ( m_host->regulation().only_local_mode && cell->m_errorno == loaderr_verify_failed )
 			{
 				dispatch_num++;
 
@@ -126,12 +126,12 @@ size_t CCreationFactory::dispatch_result()
 					(int)cell->m_download_times);
 
 				// 处理cdf
-				if ( cell->m_celltype == CCell::cdf && cell->get_cdf() )
+				if ( cell->m_celltype == e_celltype_cdf && cell->get_cdf() )
 				{
 					setup_cdf(cell);
 				}
 
-				cell->m_errorno = CCell::no_error;
+				cell->m_errorno = loaderr_ok;
 				cell->m_cellstate = CCell::verified;
 			}
 			else
@@ -149,12 +149,13 @@ size_t CCreationFactory::dispatch_result()
 
 void CCreationFactory::setup_cdf(CCell* cell)
 {
+	assert(cell->get_cdf());
 	// load all sub-cells?
 	bool loadall = false;
 	properties_t::iterator cdf_prop_it =
-		cell->get_cdf()->m_props.find(CDF_LOAD);
+		cell->m_props.find(CDF_LOADALL);
 
-	if (cdf_prop_it != cell->get_cdf()->m_props.end()
+	if (cdf_prop_it != cell->m_props.end()
 		&& CUtils::atoi((*cdf_prop_it).second.c_str()) == 1)
 	{
 		loadall = true;

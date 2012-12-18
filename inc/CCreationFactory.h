@@ -27,6 +27,7 @@ class CCreationWorker;
  * 	3.下载速度控制，拥塞控制
  * 	4.回调及事件通知
  * 	5.*非线程安全
+ *	6.*确保对于每一个cell，从post_work到dispatch_result结束过程中cellstate都处于loading状态,只有loading状态，才允许修改cell内容
  */
 class CCreationFactory
 {

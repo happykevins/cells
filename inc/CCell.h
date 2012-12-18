@@ -12,21 +12,15 @@
 #include <string>
 #include <map>
 #include <list>
+#include "cells.h"
 
 namespace cells
 {
 
 class CCDF;
 
-typedef std::map<std::string, std::string> properties_t; // 记录属性列表
 typedef std::list<class CCell*> celllist_t;
 
-extern const char* CDF_VERSION;			//= "version"	string
-extern const char* CDF_LOAD;			//= "load"		boolean:		0 | 1
-extern const char* CDF_CELL_TYPE;		//= "type"		celltype_t: 	0 | 1
-extern const char* CDF_CELL_NAME;		//= "name"		string
-extern const char* CDF_CELL_HASH;		//= "hash"		string
-extern const char* CDF_CELL_LOAD;		//= "load"		boolean:		0 | 1
 
 /*
  * CCell
@@ -39,19 +33,9 @@ extern const char* CDF_CELL_LOAD;		//= "load"		boolean:		0 | 1
 class CCell
 {
 public:
-	enum celltype_t
-	{
-		common = 0, cdf = 1
-	};
-
 	enum cellstate_t
 	{
 		unknow, loading, verified, error
-	};
-
-	enum cellerror_t
-	{
-		no_error, openfile_failed, download_failed, decompress_failed, verify_failed, patchup_failed
 	};
 
 	// 用于按照priority的排序
@@ -61,7 +45,7 @@ public:
 	  { return __x->m_priority < __y->m_priority; }
 	};
 
-	CCell(const std::string& _name, const std::string& _hash, int _celltype = common);
+	CCell(const std::string& _name, const std::string& _hash, ecelltype_t _celltype = e_celltype_common);
 	~CCell();
 
 	CCDF* get_cdf() { return m_cdf; }
@@ -70,13 +54,13 @@ public:
 	const std::string m_name;
 	std::string m_hash;
 	properties_t m_props;
-	int m_cellstate;
-	int m_celltype;
+	volatile int m_cellstate;
+	ecelltype_t m_celltype;
 	int m_priority;
 
 	void* m_stream;
 	size_t m_download_times;
-	int m_errorno;
+	eloaderror_t m_errorno;
 
 private:
 	CCDF* m_cdf;
@@ -97,7 +81,6 @@ public:
 	bool deserialize();
 
 	const CCell* m_hostcell;
-	properties_t m_props;
 	celllist_t   m_subcells;
 };
 
