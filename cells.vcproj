@@ -186,6 +186,10 @@
 				RelativePath=".\inc\md5.h"
 				>
 			</File>
+			<File
+				RelativePath=".\inc\zpip.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="src"
@@ -216,6 +220,10 @@
 			</File>
 			<File
 				RelativePath=".\src\md5.c"
+				>
+			</File>
+			<File
+				RelativePath=".\src\zpip.c"
 				>
 			</File>
 		</Filter>

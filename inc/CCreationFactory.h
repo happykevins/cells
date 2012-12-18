@@ -43,6 +43,8 @@ public:
 private:
 	// worker thread callback
 	void on_work_finished(CCell* cell);
+	// setup cdf on dispatch result
+	void setup_cdf(CCell* cell);
 
 private:
 	CCells* m_host;

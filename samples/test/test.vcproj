@@ -63,7 +63,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/LTCG"
-				AdditionalDependencies="pthreadVCE2.lib libcurl_imp.lib tinyxml.lib"
+				AdditionalDependencies="pthreadVCE2.lib libcurl_imp.lib tinyxml.lib libzlib.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\thirdparty\x86"
 				GenerateDebugInformation="true"
@@ -139,7 +139,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="pthreadVCE2.lib libcurl_imp.lib tinyxml.lib"
+				AdditionalDependencies="pthreadVCE2.lib libcurl_imp.lib tinyxml.lib libzlib.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\thirdparty\x86"
 				GenerateDebugInformation="true"
@@ -181,10 +181,6 @@
 			>
 			<File
 				RelativePath=".\main.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\md5main.c"
 				>
 			</File>
 		</Filter>

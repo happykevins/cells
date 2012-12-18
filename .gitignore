@@ -13,6 +13,9 @@
 Debug
 Release
 
+# test
+downloads
+
 # Compiled Dynamic libraries
 #*.so
 #*.dylib

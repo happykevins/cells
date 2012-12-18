@@ -80,28 +80,150 @@ void CCreationWorker::do_work()
 	// make local url
 	std::stringstream ss;
 	ss << m_host->m_host->regulation().local_url << cell->m_name;
-	printf("local path=%s\n", ss.str().c_str());
+	std::string localurl = ss.str();
+	ss << m_host->m_host->regulation().zip_tmp_suffix;
+	std::string localtmpurl = ss.str();
+	printf("local path=%s\n", localurl.c_str());
 
-	// verify & patchup local file
-	if ( work_verify_local(cell, ss.str().c_str()) && work_patchup_cell(cell, ss.str().c_str()) )
+	// open local file
+	FILE* fp = fopen(localurl.c_str(), "rb");
+	if (!fp)
 	{
-		work_finished(cell, true);
-		return;
-	}
+		//
+		// can not open local file
+		//
 
-	congestion_control();
-
-	// download & patchup cell
-	if ( work_download_remote(cell, ss.str().c_str()) && work_patchup_cell(cell, ss.str().c_str()) )
-	{
-		// download success
-		work_finished(cell, true);
+		if ( m_host->m_host->regulation().only_local_mode )
+		{
+			cell->m_errorno = CCell::openfile_failed;
+			work_finished(cell);
+			return;
+		}
 	}
 	else
 	{
-		// download or patchup false
-		work_finished(cell, false);
-	}	
+		//
+		// check local file
+		//
+
+		// only local mode hack, do not verify file!
+		if ( m_host->m_host->regulation().only_local_mode )
+		{
+			fclose(fp);
+
+			if ( !work_patchup_cell(cell, localurl.c_str()) )
+			{
+				cell->m_errorno = CCell::patchup_failed;
+			}
+
+			work_finished(cell);
+			return;
+		}
+
+		cell->m_stream = fp;
+
+		// verify local file
+		if ( work_verify_local(cell) )
+		{
+			cell->m_stream = NULL;
+			fclose(fp);
+
+			// patchup local file
+			if ( !work_patchup_cell(cell, localurl.c_str()) )
+			{
+				cell->m_errorno = CCell::patchup_failed;
+			}
+
+			work_finished(cell);
+			return;
+		}
+		else
+		{
+			// 虽然本地验证失败，但这里不用设置错误码，后面还要下载再验证
+			//cell->m_errorno == CCell::verify_failed;
+		}
+
+		// close file
+		cell->m_stream = NULL;
+		fclose(fp);
+	}
+	
+	// before download do congestion control
+	congestion_control();
+
+	// check local file
+	fp = fopen(localurl.c_str(), "wb+");
+	if (!fp)
+	{
+		cell->m_errorno = CCell::openfile_failed;
+		work_finished(cell);
+		return;
+	}
+	cell->m_stream = fp;
+
+	// download & patchup cell
+	if ( work_download_remote(cell) )
+	{
+		//
+		// download success!
+		//
+		cell->m_stream = NULL;
+		fclose(fp);
+		
+		// decompress
+		if ( m_host->m_host->regulation().zip_type != e_nozip )
+		{
+			if ( cell->m_celltype == CCell::common || 
+				(cell->m_celltype == CCell::cdf && m_host->m_host->regulation().zip_cdf) )
+			{
+				if ( !work_decompress(localurl.c_str(), localtmpurl.c_str()) )
+				{
+					printf("file decompress failed: name=%s;\n", cell->m_name.c_str());
+					cell->m_errorno = CCell::decompress_failed;
+				}
+			}
+		}
+
+		// verify downloaded file
+		if ( cell->m_errorno == CCell::no_error && !cell->m_hash.empty() )
+		{
+			fp = fopen(localurl.c_str(), "rb");
+			if (fp)
+			{
+				cell->m_stream = fp;
+				if ( !work_verify_local(cell) )
+				{
+					cell->m_errorno = CCell::verify_failed;
+				}
+				cell->m_stream = NULL;
+				fclose(fp);
+			}
+			else
+			{
+				cell->m_errorno = CCell::openfile_failed;
+			}
+		}
+
+		// patchup
+		if ( cell->m_errorno == CCell::no_error )
+		{
+			if ( !work_patchup_cell(cell, localurl.c_str()) )
+			{
+				cell->m_errorno = CCell::patchup_failed;
+			}
+		}
+	}
+	else
+	{
+		//
+		// download failed
+		//
+		cell->m_stream = NULL;
+		fclose(fp);
+		cell->m_errorno = CCell::download_failed;
+	}
+
+	work_finished(cell);	
 }
 
 bool CCreationWorker::is_free()
@@ -116,7 +238,7 @@ size_t CCreationWorker::workload()
 	return m_queue.size();
 }
 
-void CCreationWorker::work_finished(CCell* cell, bool result)
+void CCreationWorker::work_finished(CCell* cell)
 {
 	// increase the download times counter
 	cell->m_download_times++;
@@ -133,7 +255,7 @@ bool CCreationWorker::congestion_control()
 	return true;
 }
 
-bool CCreationWorker::work_verify_local(CCell* cell, const char* localurl)
+bool CCreationWorker::work_verify_local(CCell* cell)
 {
 	if (cell->m_hash.empty())
 	{
@@ -142,11 +264,8 @@ bool CCreationWorker::work_verify_local(CCell* cell, const char* localurl)
 	}
 
 	// 验证本地文件hash
-	FILE* fp = fopen(localurl, "rb");
-	if (!fp)
-	{
-		return false;
-	}
+	assert(cell->m_stream);
+	FILE* fp = (FILE*)cell->m_stream;
 
 	md5_state_t state;
 	md5_byte_t digest[16];
@@ -160,8 +279,6 @@ bool CCreationWorker::work_verify_local(CCell* cell, const char* localurl)
 		md5_append(&state, (const md5_byte_t *)m_databuf, readsize);
 	} while( !feof(fp) && !ferror(fp) );
 	md5_finish(&state, digest);
-	
-	fclose(fp);
 	
 	for (int di = 0; di < 16; ++di)
 		sprintf(hex_output + di * 2, "%02x", digest[di]);
@@ -179,18 +296,8 @@ bool CCreationWorker::work_verify_local(CCell* cell, const char* localurl)
 	return true;
 }
 
-bool CCreationWorker::work_download_remote(CCell* cell, const char* localurl)
+bool CCreationWorker::work_download_remote(CCell* cell)
 {
-	// create file
-	FILE* fp = fopen(localurl, "wb+");
-	if (!fp)
-	{
-		// create file failed
-		cell->m_errorno = CCell::openfile_failed;
-		return false;
-	}
-	cell->m_stream = fp;
-
 	// make remote url
 	const std::vector<std::string>& urls = m_host->m_host->regulation().remote_urls;
 	int urlidx = cell->m_download_times % urls.size();
@@ -205,18 +312,27 @@ bool CCreationWorker::work_download_remote(CCell* cell, const char* localurl)
 	else
 		printf("download cell failed: name=%s\n", cell->m_name.c_str());
 
-	// close file
-	fflush(fp);
-	fclose(fp);
-	cell->m_stream = NULL;
+	return result;
+}
 
-	if ( !result )
+bool CCreationWorker::work_decompress(const char* localurl, const char* tmpurl)
+{
+	if ( CUtils::decompress(localurl, tmpurl) == 0 )
 	{
-		// download failed
-		cell->m_errorno = CCell::download_failed;
+		// success!
+		int ret = remove(localurl);
+		if ( ret == 0 )
+			ret = rename(tmpurl, localurl);
+		assert(ret == 0);
+		return ret == 0;
+	}
+	else
+	{
+		// failed
+		remove(tmpurl);
 	}
 
-	return result;
+	return false;
 }
 
 bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
@@ -285,7 +401,6 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 	// cdf file
 	if ( !cdf_result && cell->m_celltype == CCell::cdf )
 	{
-		cell->m_errorno = CCell::verify_failed;
 		printf("cdf setup failed!: name=%s\n", cell->m_name.c_str() );
 		return false;
 	}

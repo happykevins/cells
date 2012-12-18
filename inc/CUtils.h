@@ -42,6 +42,10 @@ public:
 		//return 0;
 		return str == NULL ? 0 : ::atoi(str);
 	}
+
+	// zlib compress & decompress
+	static int compress(const char* file_in, const char* file_out, int level = -1);
+	static int decompress(const char* file_in, const char* file_out);
 };
 
 } /* namespace cells */

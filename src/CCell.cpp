@@ -13,11 +13,10 @@ namespace cells
 {
 
 const char* CDF_VERSION = "version";
-const char* CDF_LOAD = "load";
+const char* CDF_LOAD	= "load";
 const char* CDF_CELL_TYPE = "type";
 const char* CDF_CELL_NAME = "name";
 const char* CDF_CELL_HASH = "hash";
-const char* CDF_CELL_SIZE = "size";
 const char* CDF_CELL_LOAD = "load";
 
 CCell::CCell(const std::string& _name, const std::string& _hash /*= NULL*/,

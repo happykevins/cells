@@ -85,7 +85,7 @@ size_t CCreationFactory::dispatch_result()
 		m_finished.unlock();
 
 		// 成功
-		if (cell->m_errorno == CCell::no_error)
+		if ( cell->m_errorno == CCell::no_error )
 		{
 			dispatch_num++;
 
@@ -94,80 +94,11 @@ size_t CCreationFactory::dispatch_result()
 					cell->m_name.c_str(), cell->m_cellstate, cell->m_errorno,
 					(int)cell->m_download_times);
 
-			//
 			// 处理cdf
-			//
-			if (cell->m_celltype == CCell::cdf)
+			if ( cell->m_celltype == CCell::cdf && cell->get_cdf() )
 			{
-				assert(cell->get_cdf());
-
-				// load all sub-cells?
-				bool loadall = false;
-				properties_t::iterator cdf_prop_it =
-						cell->get_cdf()->m_props.find(CDF_LOAD);
-
-				if (cdf_prop_it != cell->get_cdf()->m_props.end()
-						&& CUtils::atoi((*cdf_prop_it).second.c_str()) == 1)
-				{
-					loadall = true;
-				}
-
-				for (celllist_t::iterator it =
-						cell->get_cdf()->m_subcells.begin();
-						it != cell->get_cdf()->m_subcells.end();)
-				{
-					CCell* subcell = *it;
-
-					m_host->m_cellidx.lock();
-					cellidx_t::iterator idxcell_it = m_host->m_cellidx.find(
-							subcell->m_name);
-
-					if (idxcell_it != m_host->m_cellidx.end())
-					{
-						m_host->m_cellidx.unlock();
-
-						// 重名,将cdf中的cell销毁，并换成idx的cell
-						CCell* idxcell = (*idxcell_it).second;
-						assert(idxcell);
-
-						it = cell->get_cdf()->m_subcells.erase(it);
-						delete subcell;
-						subcell = idxcell;
-						cell->get_cdf()->m_subcells.insert(it, idxcell);
-					}
-					else
-					{
-						// 将cdf的cell插入idx
-						m_host->m_cellidx.insert(subcell->m_name, subcell);
-						m_host->m_cellidx.unlock();
-
-						it++;
-					}
-
-					bool postload = loadall;
-					if ( !postload )
-					{
-						properties_t::iterator prop_it = subcell->m_props.find(CDF_CELL_LOAD);
-						if (prop_it != subcell->m_props.end()
-							&& CUtils::atoi((*prop_it).second.c_str()) == 1)
-						{
-							postload = true;
-						}
-					}
-
-					// 级联加载
-					if ( postload )
-					{
-						/** 风险！cdf互相需求会导致无尽循环,所以不对cdf级联
-						// TODO: 加入一个CDF索引表，在需求CDF前检查状态，如果已经需求过就不再需求
-						subcell->m_celltype == CCell::cdf ?
-								m_host->post_desire_cdf(subcell->m_name.c_str()) :
-								m_host->post_desire_file(subcell->m_name.c_str());
-						*/
-						m_host->post_desire_file(subcell->m_name.c_str());
-					}
-				}
-			} // 处理cdf - end
+				setup_cdf(cell);
+			}
 
 			// 设置完成校验标记
 			cell->m_cellstate = CCell::verified;
@@ -184,7 +115,29 @@ size_t CCreationFactory::dispatch_result()
 		// 出错了
 		else
 		{
-			cell->m_cellstate = CCell::error;
+			// local only mode hack!
+			if ( m_host->regulation().only_local_mode && cell->m_errorno == CCell::verify_failed )
+			{
+				dispatch_num++;
+
+				printf(
+					"local hack done!: name=%s; state=%d; errorno=%d; times=%d; \n",
+					cell->m_name.c_str(), cell->m_cellstate, cell->m_errorno,
+					(int)cell->m_download_times);
+
+				// 处理cdf
+				if ( cell->m_celltype == CCell::cdf && cell->get_cdf() )
+				{
+					setup_cdf(cell);
+				}
+
+				cell->m_errorno = CCell::no_error;
+				cell->m_cellstate = CCell::verified;
+			}
+			else
+			{
+				cell->m_cellstate = CCell::error;
+			}
 		}
 
 		// 通知加载完成
@@ -192,6 +145,76 @@ size_t CCreationFactory::dispatch_result()
 	}
 
 	return dispatch_num;
+}
+
+void CCreationFactory::setup_cdf(CCell* cell)
+{
+	// load all sub-cells?
+	bool loadall = false;
+	properties_t::iterator cdf_prop_it =
+		cell->get_cdf()->m_props.find(CDF_LOAD);
+
+	if (cdf_prop_it != cell->get_cdf()->m_props.end()
+		&& CUtils::atoi((*cdf_prop_it).second.c_str()) == 1)
+	{
+		loadall = true;
+	}
+
+	for (celllist_t::iterator it =
+		cell->get_cdf()->m_subcells.begin();
+		it != cell->get_cdf()->m_subcells.end();)
+	{
+		CCell* subcell = *it;
+
+		m_host->m_cellidx.lock();
+		cellidx_t::iterator idxcell_it = m_host->m_cellidx.find(
+			subcell->m_name);
+
+		if (idxcell_it != m_host->m_cellidx.end())
+		{
+			m_host->m_cellidx.unlock();
+
+			// 重名,将cdf中的cell销毁，并换成idx的cell
+			CCell* idxcell = (*idxcell_it).second;
+			assert(idxcell);
+
+			it = cell->get_cdf()->m_subcells.erase(it);
+			delete subcell;
+			subcell = idxcell;
+			cell->get_cdf()->m_subcells.insert(it, idxcell);
+		}
+		else
+		{
+			// 将cdf的cell插入idx
+			m_host->m_cellidx.insert(subcell->m_name, subcell);
+			m_host->m_cellidx.unlock();
+
+			it++;
+		}
+
+		bool postload = loadall;
+		if ( !postload )
+		{
+			properties_t::iterator prop_it = subcell->m_props.find(CDF_CELL_LOAD);
+			if (prop_it != subcell->m_props.end()
+				&& CUtils::atoi((*prop_it).second.c_str()) == 1)
+			{
+				postload = true;
+			}
+		}
+
+		// 级联加载
+		if ( postload )
+		{
+			/** 风险！cdf互相需求会导致无尽循环,所以不对cdf级联
+			// TODO: 加入一个CDF索引表，在需求CDF前检查状态，如果已经需求过就不再需求
+			subcell->m_celltype == CCell::cdf ?
+			m_host->post_desire_cdf(subcell->m_name.c_str()) :
+			m_host->post_desire_file(subcell->m_name.c_str());
+			*/
+			m_host->post_desire_file(subcell->m_name.c_str(), cell->m_priority);
+		}
+	}
 }
 
 void CCreationFactory::on_work_finished(CCell* cell)

@@ -137,18 +137,18 @@ void CCells::tick_dispatch()
 	m_desires.unlock();
 }
 
-void CCells::post_desire_cdf(const char* name, int priority /*= priority_exclusive*/)
+bool CCells::post_desire_cdf(const char* name, int priority /*= priority_exclusive*/)
 {
-	if ( name == NULL ) return;
+	if ( name == NULL ) return false;
 
-	post_desired(name, CCell::cdf, priority);
+	return post_desired(name, CCell::cdf, priority) != NULL;
 }
 
-void CCells::post_desire_file(const char* name, int priority /*= priority_default*/)
+bool CCells::post_desire_file(const char* name, int priority /*= priority_default*/)
 {
-	if ( name == NULL ) return;
+	if ( name == NULL ) return false;
 
-	post_desired(name, CCell::common, priority);
+	return post_desired(name, CCell::common, priority) != NULL;
 }
 
 void CCells::register_observer(void* target, CFunctorBase* func)
@@ -184,9 +184,20 @@ CCell* CCells::post_desired(const char* name, int type, int priority)
 	cellidx_t::iterator it = m_cellidx.find(name);
 	if (it == m_cellidx.end())
 	{
-		// desire a new cell
-		cell = new CCell(name, "", type);
-		m_cellidx.insert(name, cell);
+		if ( m_rule.enable_free_download || type == CCell::cdf )
+		{
+			// desire a new cell
+			cell = new CCell(name, "", type);
+			m_cellidx.insert(name, cell);
+		}
+		else
+		{	
+			printf("post failed: name=%s; name is not in cdf!\n", name);
+
+			// desire a non-exist common cell
+			m_cellidx.unlock();
+			return NULL;
+		}
 	}
 	else
 	{

@@ -8,6 +8,9 @@
 #include "CUtils.h"
 #include "CCells.h"
 #include <stdio.h>
+#include <vector>
+#include <algorithm>
+#include "zpip.h"
 
 class Observer
 {
@@ -25,12 +28,8 @@ void on_finish(const char* name, int type, int error_no)
 	printf("**Global::on_finish: name=%s; type=%d; error=%d;\n", name, type, error_no);
 }
 
-extern "C" int main_md5(int argc, char *argv[]);
-
 int main(int argc, char *argv[])
 {
-	//main_md5(argc, argv);
-	//return 0;
 	using namespace std;
 	using namespace cells;
 	Observer obs;
@@ -38,11 +37,14 @@ int main(int argc, char *argv[])
 	CCells cells;
 	CRegulation rule;
 	rule.auto_dispatch = true;
-	rule.worker_thread_num = 1;
+	rule.only_local_mode = false;
+	rule.zip_type = e_zlib;
+	rule.worker_thread_num = 2;
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("http://192.168.0.1/upload/");
-	rule.remote_urls.push_back("ftp://guest:guest@localhost/upload/");
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
 	cells.initialize(rule);
+	//cells.suspend();
 
 	cells.register_observer(&on_finish, make_functor_g3(on_finish));
 	cells.register_observer(&obs, make_functor_m3(&obs, &Observer::on_finish));
@@ -56,6 +58,9 @@ int main(int argc, char *argv[])
 
 	cells.post_desire_file("baby.jpg");
 	cells.post_desire_file("music.ogg");
+
+	//CUtils::sleep(5000);
+	//cells.resume();
 
 	while(true)
 	{
