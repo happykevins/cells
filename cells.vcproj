@@ -219,6 +219,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\cells.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\src\CUtils.cpp"
 				>
 			</File>

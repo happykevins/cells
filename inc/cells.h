@@ -9,6 +9,7 @@
 #define CELLS_H_
 
 #include <vector>
+#include <list>
 #include <map>
 #include <string>
 
@@ -22,14 +23,16 @@ namespace cells
 // 内建属性名
 //
 extern const char* CDF_VERSION;			//= "version"	string
-extern const char* CDF_LOADALL;			//= "load"		boolean:		0 | 1
+extern const char* CDF_LOADALL;			//= "loadall"	boolean:		0 | 1
 extern const char* CDF_CELL_TYPE;		//= "type"		celltype_t: 	0 | 1
 extern const char* CDF_CELL_NAME;		//= "name"		string
 extern const char* CDF_CELL_HASH;		//= "hash"		string
 extern const char* CDF_CELL_LOAD;		//= "load"		boolean:		0 | 1
 
-// 属性列表
-typedef std::map<std::string, std::string> properties_t; 
+// 属性表
+typedef std::map<std::string, std::string> props_t; 
+// 属性表列表
+typedef std::map<std::string, props_t*> props_list_t;
 
 // 压缩类型
 enum eziptype_t
@@ -45,15 +48,30 @@ enum ecelltype_t
 	e_celltype_cdf = 1
 };
 
+// 优先级
+enum epriority_t {
+	e_priority_ghost		= -1,
+	e_priority_default 		= 0,
+	e_priority_exclusive 	= (unsigned short)-1, // 最大65535
+};
+
+// CDF文件加载方式
+enum ecdf_loadtype_t
+{
+	e_cdf_loadtype_config = 0,
+	e_cdf_loadtype_loadnone,
+	e_cdf_loadtype_loadall
+};
+
 // 加载错误类型
 enum eloaderror_t
 {
-	loaderr_ok = 0, 
-	loaderr_openfile_failed, 
-	loaderr_download_failed, 
-	loaderr_decompress_failed, 
-	loaderr_verify_failed, 
-	loaderr_patchup_failed
+	e_loaderr_ok = 0, 
+	e_loaderr_openfile_failed, 
+	e_loaderr_download_failed, 
+	e_loaderr_decompress_failed, 
+	e_loaderr_verify_failed, 
+	e_loaderr_patchup_failed
 };
 
 //
@@ -86,20 +104,20 @@ class CFunctorBase
 {
 public:
 	virtual ~CFunctorBase(){}
-	virtual void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props) = 0;
+	virtual void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context) = 0;
 };
 
 class CFunctorG : public CFunctorBase
 {
 public:
-	typedef void (*cb_func_g_t)(const std::string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props);
+	typedef void (*cb_func_g_t)(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
 	CFunctorG(cb_func_g_t cb_func) : m_cb_func(cb_func) {}
 	CFunctorG(const CFunctorG& other) : m_cb_func(other.m_cb_func) {}
 	CFunctorG() : m_cb_func(NULL) {}
 	virtual ~CFunctorG(){ m_cb_func = NULL; }
-	virtual void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props)
+	virtual void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
-		m_cb_func(name, type, error_no, props);
+		m_cb_func(name, type, error_no, props, sub_props, context);
 	}
 
 protected:
@@ -110,7 +128,7 @@ template<typename T>
 class CFunctorM : public CFunctorBase
 {
 public:
-	typedef void (T::*mfunc_t)(const std::string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props);
+	typedef void (T::*mfunc_t)(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
 	CFunctorM(T* _t, mfunc_t _f) : m_target(_t), m_func(_f) {}
 	CFunctorM(const CFunctorM<T>& other) : m_target(other.m_target), m_func(other.m_func) {}
 	void operator=(const CFunctorM<T>& other)
@@ -119,9 +137,9 @@ public:
 		m_func = other.m_func;
 	}
 
-	void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props)
+	void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
-		(m_target->*m_func)(name, type, error_no, props);
+		(m_target->*m_func)(name, type, error_no, props, sub_props, context);
 	}
 
 protected:

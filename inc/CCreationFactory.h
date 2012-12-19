@@ -18,6 +18,7 @@ namespace cells
 
 class CCells;
 class CCell;
+class CCellTask;
 class CCreationWorker;
 
 /*
@@ -35,25 +36,25 @@ public:
 	CCreationFactory(CCells* host, size_t worker_num);
 	virtual ~CCreationFactory();
 
+	// TODO: 根据负载情况，返回投递建议
+	bool should_post() { return true; }
+
 	// 投递一个任务
 	void post_work(CCell* cell);
 
-	// 分发结果
-	size_t dispatch_result();
+	// 获得一个任务结果，如果没有返回NULL
+	CCell* pop_result();
 
 private:
 	// worker thread callback
-	void on_work_finished(CCell* cell);
-	// setup cdf on dispatch result
-	void setup_cdf(CCell* cell);
+	void notify_work_finished(CCell* cell);
 
 private:
 	CCells* m_host;
 	std::vector<CCreationWorker*> m_workers;
 	size_t m_task_counter;
-	// TODO: 是否考虑把这个列表放到CCells类中，这里只管分发任务和返回结果，不应该处理逻辑
-	CQueue<class CCell*> m_finished;
 
+	CQueue<class CCell*> m_finished;
 	friend class CCreationWorker;
 };
 

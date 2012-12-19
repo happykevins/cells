@@ -24,7 +24,6 @@ class CCreationFactory;
  * 	创造cell工作线程
  * 	1.验证本地cell是否合法
  * 	2.在指定的url下载cell
- * 	TODO: 考虑重构时把逻辑和Worker类分离，层次更清晰
  */
 class CCreationWorker
 {
@@ -55,7 +54,7 @@ private:
 	volatile bool m_working;
 	pthread_t m_thread;
 	sem_t m_sem;
-	CPriorityQueue<CCell*, CCell::less_t> m_queue;
+	CQueue<CCell*> m_queue;
 	CDownloader m_downloadhandle;
 	char m_databuf[CWORKER_BUFFER_SIZE];
 

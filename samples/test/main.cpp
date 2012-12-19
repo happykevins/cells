@@ -18,11 +18,17 @@ using namespace cells;
 class Observer
 {
 public:
-	void on_finish(const string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props)
+	void on_finish(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
 		printf("**Observer::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
+
+		if ( error_no != 0 )
+		{
+			return;
+		}
+
 		printf("--**Props:");
-		for (properties_t::const_iterator it = props.begin(); it != props.end(); it++)
+		for (props_t::const_iterator it = props->begin(); it != props->end(); it++)
 		{
 			printf("[%s=%s] ", it->first.c_str(), it->second.c_str());
 		}
@@ -31,12 +37,17 @@ public:
 };
 
 bool cdf_ok = false;
-void on_finish(const string& name, ecelltype_t type, eloaderror_t error_no, const properties_t& props)
+void on_finish(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 {
-	cdf_ok = true;
 	printf("**Global::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
+	if ( error_no != 0 )
+	{
+		return;
+	}
+	cdf_ok = true;
+
 	printf("--**Props:");
-	for (properties_t::const_iterator it = props.begin(); it != props.end(); it++)
+	for (props_t::const_iterator it = props->begin(); it != props->end(); it++)
 	{
 		printf("[%s=%s] ", it->first.c_str(), it->second.c_str());
 	}
@@ -57,6 +68,7 @@ int main(int argc, char *argv[])
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("http://192.168.0.1/upload/");
 	rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
+
 	cells.initialize(rule);
 	//cells.suspend();
 
