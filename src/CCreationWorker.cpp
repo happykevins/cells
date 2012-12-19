@@ -13,7 +13,6 @@
 #include <assert.h>
 #include <tinyxml.h>
 
-#include "md5.h"
 #include "CUtils.h"
 #include "CCells.h"
 #include "CCreationFactory.h"
@@ -266,30 +265,16 @@ bool CCreationWorker::work_verify_local(CCell* cell)
 	assert(cell->m_stream);
 	FILE* fp = (FILE*)cell->m_stream;
 
-	md5_state_t state;
-	md5_byte_t digest[16];
-	char hex_output[16*2 + 1];
-	size_t file_size = 0;
-	md5_init(&state);
-	do
-	{
-		size_t readsize = fread(m_databuf, 1, sizeof(m_databuf), fp);
-		file_size += readsize;
-		md5_append(&state, (const md5_byte_t *)m_databuf, readsize);
-	} while( !feof(fp) && !ferror(fp) );
-	md5_finish(&state, digest);
-	
-	for (int di = 0; di < 16; ++di)
-		sprintf(hex_output + di * 2, "%02x", digest[di]);
+	std::string md5str = CUtils::filehash_md5str(fp, m_databuf, sizeof(m_databuf));
 
-	if ( strcmp(hex_output, cell->m_hash.c_str()) )
+	if ( md5str != cell->m_hash )
 	{
-		printf("hash verify failed: name=%s; size=%d; cdf_hash=%s, file_hash=%s\n", cell->m_name.c_str(), file_size, cell->m_hash.c_str(), hex_output);
+		printf("hash verify failed: name=%s; cdf_hash=%s, file_hash=%s\n", cell->m_name.c_str(), cell->m_hash.c_str(), md5str.c_str());
 		return false;
 	}
 	else
 	{
-		printf("hash verify success: name=%s; size=%d; hash=%s\n", cell->m_name.c_str(), file_size, cell->m_hash.c_str());
+		printf("hash verify success: name=%s; hash=%s\n", cell->m_name.c_str(), cell->m_hash.c_str());
 	}
 
 	return true;

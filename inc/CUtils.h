@@ -9,7 +9,8 @@
 #define CUTILS_H_
 
 #include "CPlatform.h"
-#include "stdlib.h"
+#include <stdlib.h>
+#include <string>
 
 namespace cells
 {
@@ -45,7 +46,11 @@ public:
 
 	// zlib compress & decompress
 	static int compress(const char* file_in, const char* file_out, int level = -1);
+	static int compress_fd(FILE* fin, FILE* fout, int level = -1);
 	static int decompress(const char* file_in, const char* file_out);
+
+	// hash utils
+	static std::string filehash_md5str(FILE* fp, char* buf, size_t buf_size);
 };
 
 } /* namespace cells */
