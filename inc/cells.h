@@ -24,7 +24,7 @@ namespace cells
 //
 extern const char* CDF_VERSION;			//= "version"	string
 extern const char* CDF_LOADALL;			//= "loadall"	boolean:		0 | 1
-extern const char* CDF_CELL_TYPE;		//= "type"		celltype_t: 	0 | 1
+extern const char* CDF_CELL_CDF;		//= "cdf"		boolean: 		0 | 1 : is 'e_celltype_cdf' type
 extern const char* CDF_CELL_NAME;		//= "name"		string
 extern const char* CDF_CELL_HASH;		//= "hash"		string
 extern const char* CDF_CELL_LOAD;		//= "load"		boolean:		0 | 1
@@ -56,11 +56,15 @@ enum epriority_t {
 };
 
 // CDF文件加载方式
+//  *注意：目前对cascade加载方式，由于内部实现用一张cdf索引状态表来终止潜在的无限递归，
+//		所以如果cascade路径上遇到已经建立过索引的cdf，会终止递归，其子路径也不会被加载。
 enum ecdf_loadtype_t
 {
-	e_cdf_loadtype_config = 0,
-	e_cdf_loadtype_loadnone,
-	e_cdf_loadtype_loadall
+	e_cdf_loadtype_config = 0,		// 建立此cdf索引，并按配置来进行加载操作
+	e_cdf_loadtype_index,			// 只建立此cdf的索引，不加载文件
+	e_cdf_loadtype_index_cascade,	// 级联建立子cdf索引，不加载common文件
+	e_cdf_loadtype_load,			// 建立索引并加载此cdf描述的文件
+	e_cdf_loadtype_load_cascade,	// 建立索引并级联加载所有子cdf描述的文件
 };
 
 // 加载错误类型

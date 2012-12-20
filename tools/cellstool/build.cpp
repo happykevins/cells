@@ -1,32 +1,17 @@
 #include "tools.h"
-#include <stdio.h>
-#include <string.h>
-#include <io.h>
-#include <stdlib.h> 
-#include <direct.h>
-
-#ifdef _DEBUG
-#define assert_break(exp) assert(exp)
-#else
-#define assert_break(exp) if ( !exp ) { break; }
-#endif
 
 static string s_inputpath;
 static string s_outputpath;
 static bool s_compress = false;
 static int s_compress_level = -1;
-static string s_suffix;
 static size_t s_file_counter = 0;
 static size_t s_file_err_counter = 0;
 static size_t s_folder_counter = 0;
 static size_t s_folder_err_counter = 0;
-static string s_process_log = "cells_build_logs.txt";
-static string s_folders_outputfile = "cells_folders.csv";
-static string s_files_outputfile = "cells_files.csv";
+static string s_process_log = "cells_build_logs.log";
 static FILE* s_process_log_fp = NULL;
 static FILE* s_folders_outputfile_fp = NULL;
 static FILE* s_files_outputfile_fp = NULL;
-char s_data_buf[16384];
 
 bool process_folder(string full_path, string rel_path, string name)
 {
@@ -57,7 +42,7 @@ bool process_file(string full_path, string rel_path, string name)
 {
 	string input_file = full_path + name;
 	string output_file = s_outputpath + rel_path + name;
-	string hash_file = output_file + s_suffix;
+	string hash_file = output_file + s_hash_suffix;
 	string rel_file = rel_path + name;
 	int ret = 0;
 
@@ -227,7 +212,7 @@ void build_cells(string input_path, string output_path, bool compress, int compr
 	s_outputpath = output_path;
 	s_compress = compress;
 	s_compress_level = compress_level;
-	s_suffix = suffix;
+	suffix;
 
 
 

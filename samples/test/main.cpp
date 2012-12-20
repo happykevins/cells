@@ -20,6 +20,7 @@ class Observer
 public:
 	void on_finish(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
+		if ( error_no == 0) return;
 		printf("**Observer::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
 
 		if ( error_no != 0 )
@@ -63,19 +64,21 @@ int main(int argc, char *argv[])
 	rule.auto_dispatch = true;
 	rule.only_local_mode = false;
 	rule.zip_type = e_zlib;
-	rule.zip_cdf = false;
-	rule.worker_thread_num = 2;
+	rule.zip_cdf = true;
+	rule.worker_thread_num = 1;
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("http://192.168.0.1/upload/");
-	rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
+	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
 
 	cells.initialize(rule);
 	//cells.suspend();
 
-	cells.register_observer(&on_finish, make_functor_g(on_finish));
+	//cells.register_observer(&on_finish, make_functor_g(on_finish));
 	cells.register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
-	cells.post_desire_cdf("cdf.xml");
+	cells.post_desire_cdf("index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
+	cells.post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
 
 	//while (!cdf_ok)
 	//{

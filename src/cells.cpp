@@ -13,7 +13,7 @@ namespace cells
 
 const char* CDF_VERSION = "version";
 const char* CDF_LOADALL	= "loadall";
-const char* CDF_CELL_TYPE = "type";
+const char* CDF_CELL_CDF = "cdf";
 const char* CDF_CELL_NAME = "name";
 const char* CDF_CELL_HASH = "hash";
 const char* CDF_CELL_LOAD = "load";

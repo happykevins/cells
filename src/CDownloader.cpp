@@ -41,7 +41,8 @@ CDownloader::CDownloader(CCreationWorker* host) :
 	assert(m_handle);
 	curl_easy_setopt(m_handle, CURLOPT_WRITEFUNCTION,
 			CDownloader::process_data);
-	curl_easy_setopt(m_handle, CURLOPT_TIMEOUT, 3l);
+	// TODO: 这个并不是连接超时，而是整个socket重置的时间，下载中也会中断
+	curl_easy_setopt(m_handle, CURLOPT_TIMEOUT, 30l);
 	curl_easy_setopt(m_handle, CURLOPT_NOSIGNAL, 1L);
 	// TODO: 监测是否会产生大量CLOSE_WAIT
 	//curl_easy_setopt(m_handle, CURLOPT_FORBID_REUSE, 1);

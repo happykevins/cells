@@ -149,13 +149,29 @@ void CCreationWorker::do_work()
 	// before download do congestion control
 	congestion_control();
 
+	std::string downloadurl = localurl;
+	bool need_decompress = false;
+	// check need tmp file
+	if ( m_host->m_host->regulation().zip_type != 0 && 
+		( cell->m_celltype == e_celltype_common || m_host->m_host->regulation().zip_cdf ) )
+	{
+		downloadurl = localtmpurl;
+		need_decompress = true;
+	}
+
 	// check local file
-	fp = fopen(localurl.c_str(), "wb+");
+	fp = fopen(downloadurl.c_str(), "wb+");
 	if (!fp)
 	{
-		cell->m_errorno = e_loaderr_openfile_failed;
-		work_finished(cell);
-		return;
+		// build path directory, try again!
+		CUtils::builddir(downloadurl.c_str());
+		fp = fopen(downloadurl.c_str(), "wb+");
+		if ( !fp )
+		{
+			cell->m_errorno = e_loaderr_openfile_failed;
+			work_finished(cell);
+			return;
+		}
 	}
 	cell->m_stream = fp;
 
@@ -169,16 +185,12 @@ void CCreationWorker::do_work()
 		fclose(fp);
 		
 		// decompress
-		if ( m_host->m_host->regulation().zip_type != e_nozip )
+		if ( need_decompress )
 		{
-			if ( cell->m_celltype == e_celltype_common || 
-				(cell->m_celltype == e_celltype_cdf && m_host->m_host->regulation().zip_cdf) )
+			if ( !work_decompress(downloadurl.c_str(), localurl.c_str()) )
 			{
-				if ( !work_decompress(localurl.c_str(), localtmpurl.c_str()) )
-				{
-					printf("file decompress failed: name=%s;\n", cell->m_name.c_str());
-					cell->m_errorno = e_loaderr_decompress_failed;
-				}
+				printf("file decompress failed: name=%s;\n", cell->m_name.c_str());
+				cell->m_errorno = e_loaderr_decompress_failed;
 			}
 		}
 
@@ -299,24 +311,12 @@ bool CCreationWorker::work_download_remote(CCell* cell)
 	return result;
 }
 
-bool CCreationWorker::work_decompress(const char* localurl, const char* tmpurl)
+bool CCreationWorker::work_decompress(const char* tmplocalurl, const char* localurl)
 {
-	if ( CUtils::decompress(localurl, tmpurl) == 0 )
-	{
-		// success!
-		int ret = remove(localurl);
-		if ( ret == 0 )
-			ret = rename(tmpurl, localurl);
-		assert(ret == 0);
-		return ret == 0;
-	}
-	else
-	{
-		// failed
-		remove(tmpurl);
-	}
-
-	return false;
+	bool ret = CUtils::decompress(tmplocalurl, localurl) == 0;
+	int rm_ret = remove(tmplocalurl);
+	assert(rm_ret == 0);
+	return ret;
 }
 
 bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
@@ -356,10 +356,10 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 				const char* cell_hash = cell_section->Attribute(CDF_CELL_HASH);
 
-				ecelltype_t cell_type = (ecelltype_t)CUtils::atoi(cell_section->Attribute(CDF_CELL_TYPE));
-				// 健壮性检测：异常值修正
-				if (cell_type != e_celltype_cdf)
-					cell_type = e_celltype_common;
+				ecelltype_t cell_type = e_celltype_common;
+				bool is_cdf = CUtils::atoi(cell_section->Attribute(CDF_CELL_CDF)) == 1;
+				if (is_cdf)
+					cell_type = e_celltype_cdf;
 
 				CCell* cell = new CCell(cell_name, cell_hash, cell_type);
 
@@ -378,7 +378,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 			}
 		}
 		cdf_result = true;
-		cell->set_cdf(ret_cdf);
+		cell->m_cdf = ret_cdf;
 	}
 	doc.Clear();
 
@@ -390,7 +390,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 	}
 	else if ( cell->m_celltype == e_celltype_cdf )
 	{
-		printf("cdf setup success: name=%s, child=%d\n", cell->m_name.c_str(), (int)cell->get_cdf()->m_subcells.size());
+		printf("cdf setup success: name=%s, child=%d\n", cell->m_name.c_str(), (int)cell->m_cdf->m_subcells.size());
 		return true;
 	}
 

@@ -100,6 +100,10 @@ void CCells::destroy()
 	m_observers.clear();
 	m_observers.unlock();
 
+	// 销毁cdf index
+	m_cdfidx.lock();
+	m_cdfidx.clear();
+	m_cdfidx.unlock();
 
 	// 确保最后销毁m_cellidx
 	m_cellidx.lock();
@@ -225,6 +229,15 @@ CCell* CCells::post_desired(const std::string& name, ecelltype_t type, int prior
 	else
 	{
 		cell = it->second;
+
+		// request type mismatch
+		if ( cell->m_celltype != type )
+		{
+			printf("post failed: name=%s; o_type=%d; r_type=%d; type mismatch!\n", name, cell->m_celltype, type);
+
+			m_cellidx.unlock();
+			return NULL;
+		}
 	}
 	m_cellidx.unlock();
 
@@ -255,9 +268,9 @@ void CCells::on_task_finish(CCell* cell)
 			(int)cell->m_download_times);
 
 		// 处理cdf
-		if ( cell->m_celltype == e_celltype_cdf && cell->get_cdf() )
+		if ( cell->m_celltype == e_celltype_cdf && cell->m_cdf )
 		{
-			setup_cdf(cell);
+			cdf_setupindex(cell);
 		}
 
 		// 设置完成校验标记
@@ -283,9 +296,9 @@ void CCells::on_task_finish(CCell* cell)
 				cell->m_name.c_str(), cell->m_cellstate, cell->m_errorno);
 
 			// 处理cdf
-			if ( cell->m_celltype == e_celltype_cdf && cell->get_cdf() )
+			if ( cell->m_celltype == e_celltype_cdf && cell->m_cdf )
 			{
-				setup_cdf(cell);
+				cdf_setupindex(cell);
 			}
 
 			cell->m_errorno = e_loaderr_ok;
@@ -305,8 +318,15 @@ void CCells::on_task_finish(CCell* cell)
 		CCell* cell = task->cell();
 
 		// 处理是否加载cdf内容
-		if ( cell->m_celltype == e_celltype_cdf && cell->get_cdf())
-			cdf_postload(task);
+		if ( cell->m_celltype == e_celltype_cdf && cell->m_cdf )
+		{
+			// check cdf index
+			m_cdfidx.lock();
+			bool can_post = m_cdfidx.find(cell->m_name) != m_cdfidx.end();
+			m_cdfidx.unlock();
+			if (can_post)
+				cdf_postload(task);
+		}
 
 		// notify observers
 		m_observers.lock();
@@ -315,14 +335,13 @@ void CCells::on_task_finish(CCell* cell)
 		{
 			if ( cell->m_celltype == e_celltype_cdf )
 			{
-				CCDF* cdf = cell->get_cdf();
-				if ( cdf )
+				if ( cell->m_cdf )
 				{
 					props_list_t props_list;
 
 					props_list.insert(std::make_pair(cell->m_name, &(cell->m_props)));
 
-					for ( celllist_t::iterator sub_it = cdf->m_subcells.begin(); sub_it != cdf->m_subcells.end(); sub_it++ )
+					for ( celllist_t::iterator sub_it = cell->m_cdf->m_subcells.begin(); sub_it != cell->m_cdf->m_subcells.end(); sub_it++ )
 					{
 						props_list.insert(std::make_pair((*sub_it)->m_name, &((*sub_it)->m_props)));
 					}
@@ -331,7 +350,7 @@ void CCells::on_task_finish(CCell* cell)
 						cell->m_name,
 						cell->m_celltype,
 						cell->m_errorno,
-						&(cdf->m_props),
+						&(cell->m_cdf->m_props),
 						&props_list,
 						task->context());
 				}
@@ -366,13 +385,22 @@ void CCells::on_task_finish(CCell* cell)
 }
 
 
-void CCells::setup_cdf(CCell* cell)
+void CCells::cdf_setupindex(CCell* cell)
 {
-	assert(cell->get_cdf());
+	assert(cell->m_cdf);
+
+	// check if alread setup index
+	m_cdfidx.lock();
+	if ( m_cdfidx.find(cell->m_name) != m_cdfidx.end() )
+	{
+		m_cdfidx.unlock();
+		return;
+	}
+	m_cdfidx.unlock();
 
 	for (celllist_t::iterator it =
-		cell->get_cdf()->m_subcells.begin();
-		it != cell->get_cdf()->m_subcells.end();)
+		cell->m_cdf->m_subcells.begin();
+		it != cell->m_cdf->m_subcells.end();)
 	{
 		CCell* subcell = *it;
 
@@ -384,14 +412,14 @@ void CCells::setup_cdf(CCell* cell)
 		{
 			m_cellidx.unlock();
 
-			// 重名,以idx中的cell为准
+			// 该名称cell已经存在,以idx中的cell为准
 			CCell* idxcell = (*idxcell_it).second;
 			assert(idxcell);
 
-			it = cell->get_cdf()->m_subcells.erase(it);
+			it = cell->m_cdf->m_subcells.erase(it);
 			delete subcell;
 			subcell = idxcell;
-			cell->get_cdf()->m_subcells.insert(it, idxcell);
+			cell->m_cdf->m_subcells.insert(it, idxcell);
 		}
 		else
 		{
@@ -402,50 +430,51 @@ void CCells::setup_cdf(CCell* cell)
 			it++;
 		}
 	}
+
+	m_cdfidx.lock();
+	m_cdfidx.insert(cell->m_name, cell);
+	m_cdfidx.unlock();
 }
 
 void CCells::cdf_postload(CCellTask* task)
 {
-	if ( task->cdf_loadtype == e_cdf_loadtype_loadnone )
+	// index only
+	if ( task->cdf_loadtype == e_cdf_loadtype_index )
 	{
 		return;
 	}
 
 	CCell* cell = task->cell();
-	assert(cell && cell->get_cdf());
+	assert(cell && cell->m_cdf);
 
 	bool loadall = false;
 
-	if ( task->cdf_loadtype == e_cdf_loadtype_loadall )
+	if ( task->cdf_loadtype == e_cdf_loadtype_load || task->cdf_loadtype == e_cdf_loadtype_load_cascade )
 	{
 		loadall = true;
 	}
 
-	// cdf set 'loadall' mark?
-	if ( !loadall )
+	// load config 'loadall' mark?
+	if ( task->cdf_loadtype == e_cdf_loadtype_config )
 	{
 		props_t::iterator cdf_prop_it =
-			cell->get_cdf()->m_props.find(CDF_LOADALL);
+			cell->m_cdf->m_props.find(CDF_LOADALL);
 
-		if (cdf_prop_it != cell->get_cdf()->m_props.end()
+		if (cdf_prop_it != cell->m_cdf->m_props.end()
 			&& CUtils::atoi((*cdf_prop_it).second.c_str()) == 1)
 		{
 			loadall = true;
 		}
 	}
 
-	for (celllist_t::iterator it = cell->get_cdf()->m_subcells.begin();
-		it != cell->get_cdf()->m_subcells.end(); it++)
+	for (celllist_t::iterator it = cell->m_cdf->m_subcells.begin();
+		it != cell->m_cdf->m_subcells.end(); it++)
 	{
 		CCell* subcell = *it;
 
-		m_cellidx.lock();
-		cellidx_t::iterator idxcell_it = m_cellidx.find(subcell->m_name);
-		assert(idxcell_it != m_cellidx.end()); // already set in setup_cdf
-		m_cellidx.unlock();
-
 		bool postload = loadall;
-		if ( !postload )
+		// parse config 'load' mark
+		if ( !postload && task->cdf_loadtype == e_cdf_loadtype_config )
 		{
 			props_t::iterator prop_it = subcell->m_props.find(CDF_CELL_LOAD);
 			if (prop_it != subcell->m_props.end()
@@ -455,10 +484,41 @@ void CCells::cdf_postload(CCellTask* task)
 			}
 		}
 
-		if ( postload )
+		if ( subcell->m_celltype == e_celltype_cdf )
 		{
-			// 由于潜在死循环风险,不做cdf的级联处理
-			post_desired(subcell->m_name, subcell->m_celltype, task->priority(), task->context(), e_cdf_loadtype_loadnone);
+			//
+			// cdf file
+			//
+
+			if ( task->cdf_loadtype == e_cdf_loadtype_index_cascade || task->cdf_loadtype == e_cdf_loadtype_load_cascade )
+			{
+				m_cdfidx.lock();
+				bool alreadyindexed = m_cdfidx.find(subcell->m_name) != m_cdfidx.end();
+				m_cdfidx.unlock();
+				
+				if ( !alreadyindexed )
+				{
+					// 未建立索引，级联调用
+					post_desire_cdf(subcell->m_name, task->priority(), task->cdf_loadtype, task->context());
+				}
+				else
+				{
+					// 已经在索引中，不再级联调用
+				}
+			}
+			else if ( postload )
+			{
+				post_desire_cdf(subcell->m_name, task->priority(), e_cdf_loadtype_index, task->context());
+			}
+		}
+		else 
+		{
+			//
+			// common file
+			//
+
+			if ( postload )
+				post_desire_file(subcell->m_name, task->priority(), task->context());
 		}
 	}
 

@@ -41,9 +41,6 @@ public:
 	CCell(const std::string& _name, const std::string& _hash, ecelltype_t _celltype = e_celltype_common);
 	~CCell();
 
-	CCDF* get_cdf() { return m_cdf; }
-	void set_cdf(CCDF* cdf) { m_cdf = cdf;}
-
 	const std::string m_name;
 	std::string m_hash;
 	props_t m_props;
@@ -54,7 +51,6 @@ public:
 	size_t m_download_times;
 	eloaderror_t m_errorno;
 
-private:
 	CCDF* m_cdf;
 };
 

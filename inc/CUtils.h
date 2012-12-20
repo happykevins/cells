@@ -27,7 +27,7 @@ public:
 	{
 		Sleep(0);
 	}
-#else // __linux__
+#else // __linux__ 
 	inline static void sleep(unsigned int millisec)
 	{
 		usleep(millisec * 1000);
@@ -51,6 +51,23 @@ public:
 
 	// hash utils
 	static std::string filehash_md5str(FILE* fp, char* buf, size_t buf_size);
+
+	// directory access
+	static bool access(const char* path, int mode);
+
+	// make directory
+	static bool mkdir(const char* path);
+
+	// build path directorys
+	static bool builddir(const char* path);
+
+	// trim
+	static std::string str_trim(std::string& s);
+
+	// replace char
+	static size_t str_replace_ch(std::string& str, char which, char to);
+
+
 };
 
 } /* namespace cells */

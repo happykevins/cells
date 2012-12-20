@@ -18,6 +18,7 @@
 // TODO: 监测系统接口
 // TODO: 对url列表的连接进行测速，优先选用最快的url，重试下载的cell是否要调整优先级，以免阻塞后续请求
 // TODO: 对加载线程的负载控制，可以启动多线程，但不一定都使用，根据负载来调节，减少libcurl阻塞带来的性能瓶颈
+// TODO: 断点续传功能
 //
 namespace cells
 {
@@ -27,6 +28,7 @@ class CCreationFactory;
 
 typedef CMap<void*, CFunctorBase*> observeridx_t;
 typedef CMap<std::string, class CCell*> cellidx_t;
+typedef CMap<std::string, class CCell*> cdfidx_t;
 
 /*
 * CCellTask - desire task
@@ -166,7 +168,7 @@ protected:
 	static void* cells_working(void* context);
 
 private:
-	void setup_cdf(CCell* cell);
+	void cdf_setupindex(CCell* cell);
 	void cdf_postload(CCellTask* task);
 
 protected:
@@ -174,6 +176,7 @@ protected:
 	CCreationFactory* 	m_factory;
 	volatile bool 		m_suspend;
 	cellidx_t 			m_cellidx;
+	cdfidx_t			m_cdfidx;	// cdf建立索引状态表
 	observeridx_t		m_observers;
 
 	CPriorityQueue<CCellTask*, CCellTask::less_t> m_desires;
