@@ -19,16 +19,26 @@ namespace cells
 {
 
 CCreationFactory::CCreationFactory(CCells* host, size_t worker_num) :
-		m_host(host), m_task_counter(0)
+		m_host(host), m_worknum(worker_num), m_ghostworker(NULL), m_task_counter(0), m_speedfactor(1.0f)
 {
-	for (size_t i = 0; i < worker_num; i++)
+	for (size_t i = 0; i < m_worknum; i++)
 	{
-		m_workers.push_back(new CCreationWorker(this));
+		m_workers.push_back(new CCreationWorker(this, i));
+	}
+
+	if ( m_host->regulation().enable_ghost_mode )
+	{
+		m_ghostworker = new CGhostWorker(this, m_worknum + 1);
 	}
 }
 
 CCreationFactory::~CCreationFactory()
 {
+	if ( m_ghostworker )
+	{
+		delete m_ghostworker;
+	}
+
 	for (size_t i = 0; i < m_workers.size(); i++)
 	{
 		delete m_workers[i];
@@ -36,11 +46,11 @@ CCreationFactory::~CCreationFactory()
 	m_workers.clear();
 }
 
-void CCreationFactory::post_work(CCell* cell)
+void CCreationFactory::post_work(CCell* cell, bool ghost)
 {
 	assert(cell);
 
-	printf(
+	CLogD(
 			"post work: name=%s; type=%d; errorno=%d; times=%d; \n",
 			cell->m_name.c_str(), cell->m_celltype, cell->m_errorno,
 			(int)cell->m_download_times);
@@ -66,9 +76,28 @@ void CCreationFactory::post_work(CCell* cell)
 	// 只在此线程中修改cell状态
 	cell->m_cellstate = CCell::loading;
 
-	// TODO: 可实现更优化的根据负载判定选择的worker
-	size_t worker_id = m_task_counter % m_workers.size();
-	m_workers[worker_id]->post_work(cell);
+	// check if ghost task
+	if ( ghost && m_host->regulation().enable_ghost_mode )
+	{
+		assert(m_ghostworker);
+		m_ghostworker->post_work(cell);
+	}
+	else
+	{
+		// 根据负载判定选择的worker
+		size_t worker_id = 0;
+		size_t min_workload = (size_t)-1;
+		for (size_t i = 0; i < m_workers.size(); i++)
+		{
+			if ( m_workers[i]->workload() < min_workload )
+			{
+				worker_id = i;
+				min_workload = m_workers[i]->workload();
+			}
+		}
+		m_workers[worker_id]->post_work(cell);
+	}
+
 	m_task_counter++;
 
 	return;
@@ -92,6 +121,72 @@ void CCreationFactory::notify_work_finished(CCell* cell)
 	m_finished.lock();
 	m_finished.push(cell);
 	m_finished.unlock();
+}
+
+size_t CCreationFactory::count_workload()
+{
+	size_t sum_workload = 0;
+	for (size_t i = 0; i < m_workers.size(); i++)
+	{
+		sum_workload += m_workers[i]->workload();
+	}
+	if ( m_ghostworker )
+	{
+		sum_workload += m_ghostworker->workload();
+	}
+
+	return sum_workload;
+}
+
+size_t CCreationFactory::count_workingworks()
+{
+	size_t working_num = 0;
+	for (size_t i = 0; i < m_workers.size(); i++)
+	{
+		if ( m_workers[i]->workload() != 0 )
+			working_num++;
+	}
+
+	return working_num;
+}
+
+size_t CCreationFactory::count_downloadbytes()
+{
+	size_t sum_bytes = 0;
+	for (size_t i = 0; i < m_workers.size(); i++)
+	{
+		sum_bytes += m_workers[i]->get_downloadbytes();
+	}
+	if ( m_ghostworker )
+	{
+		sum_bytes += m_ghostworker->get_downloadbytes();
+	}
+
+	return sum_bytes;
+}
+
+void CCreationFactory::set_speedfactor(float f)
+{
+	assert(f >= 0 && f <= 1.0);
+
+	m_speedfactor = f;
+}
+
+size_t CCreationFactory::suggest_maxspeed()
+{
+	// 由于工作线程还负责解压缩和存储到磁盘，不能全速下载，做一个补偿
+	float local_factor = 1.5f;
+	if ( m_host->regulation().zip_type != e_nozip )
+	{
+		local_factor = 2.0f;
+	}
+
+	size_t free_size = m_worknum - count_workingworks();
+	free_size = free_size < 1 ? 1 : free_size;
+
+	local_factor = local_factor * free_size / m_worknum;
+
+	return (size_t) (m_host->regulation().max_download_speed * m_speedfactor * local_factor);
 }
 
 } /* namespace cells */

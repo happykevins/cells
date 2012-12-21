@@ -28,14 +28,14 @@ class CCreationFactory;
 class CCreationWorker
 {
 public:
-	CCreationWorker(CCreationFactory* host);
+	CCreationWorker(CCreationFactory* host, size_t no);
 	virtual ~CCreationWorker();
 
 public:
 	virtual void post_work(CCell* cell);
 	virtual void do_work();
-	bool is_free();
-	size_t workload();
+	virtual size_t workload();		// 负载情况
+	size_t get_downloadbytes();
 
 protected:
 	virtual bool work_verify_local(CCell* cell);
@@ -44,13 +44,20 @@ protected:
 	virtual bool work_patchup_cell(CCell* cell, const char* localurl);
 	virtual void work_finished(CCell* cell);
 
-	virtual bool congestion_control();
+	virtual size_t calc_maxspeed(); 
 
 private:
 	static void* working(void* context);
 
-	CCreationFactory* m_host;
+	// downloader callback
+	// @return - should flush to disk
+	bool on_download_bytes(size_t bytes);
 
+protected:
+	CCreationFactory* m_host;
+	const size_t m_workno;
+
+private:
 	volatile bool m_working;
 	pthread_t m_thread;
 	sem_t m_sem;
@@ -58,7 +65,24 @@ private:
 	CDownloader m_downloadhandle;
 	char m_databuf[CWORKER_BUFFER_SIZE];
 
+	// congestion stat.
+	volatile size_t m_downloadbytes;
+	size_t m_cachedbytes;			// no flush bytes
+
 	friend class CDownloader;
+};
+
+/*
+ * CGhostWorker - ghost模式的工作线程
+ */
+class CGhostWorker : public CCreationWorker
+{
+public:
+	CGhostWorker(CCreationFactory* host, size_t no);
+	virtual ~CGhostWorker();
+
+protected:
+	virtual size_t calc_maxspeed(); 
 };
 
 } /* namespace cells */

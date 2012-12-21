@@ -13,8 +13,6 @@
 
 //
 // 待实现功能列表
-// TODO: *候选url多次尝试,curl是否已经支持是否需要支持？
-// TODO: 下载限速及拥塞控制, tick_dispatch分发请求时对factory的负载判断
 // TODO: 监测系统接口
 // TODO: 对url列表的连接进行测速，优先选用最快的url，重试下载的cell是否要调整优先级，以免阻塞后续请求
 // TODO: 对加载线程的负载控制，可以启动多线程，但不一定都使用，根据负载来调节，减少libcurl阻塞带来的性能瓶颈
@@ -47,6 +45,7 @@ private:
 
 public:
 	ecdf_loadtype_t cdf_loadtype;
+	bool ghost_task;
 
 	inline CCell* cell() { return m_cell; }
 	inline int priority() { return m_priority; }
@@ -54,7 +53,7 @@ public:
 	inline void* context() { return m_context;}
 
 	CCellTask(CCell* _cell, int _priority, ecelltype_t _type, void* _user_context = NULL) : 
-	m_cell(_cell), m_priority(_priority), m_type(_type), m_context(_user_context), cdf_loadtype(e_cdf_loadtype_config) {}
+	m_cell(_cell), m_priority(_priority), m_type(_type), m_context(_user_context), cdf_loadtype(e_cdf_loadtype_config), ghost_task(false) {}
 
 	// 用于按照priority的排序
 	struct less_t : public std::binary_function<CCellTask*, CCellTask*, bool>
@@ -94,12 +93,13 @@ public:
 
 	/*
 	 * 派发结果通告
+	 *	@param - dt : 间隔时间(秒)
 	 * 	1.auto_dispatch设置为false，用户通过调用该方法来派发执行结果
 	 * 		以确保回调函数在用户线程中执行
 	 * 	2.auto_dispatch为true,cells系统线程将派
 	 * 		发回调，用户需要对回调函数的线程安全性负责
 	 */
-	void tick_dispatch();
+	void tick_dispatch(double dt);
 
 	/*
 	 * 恢复执行
@@ -161,15 +161,24 @@ public:
 	 */
 	void remove_observer(void* target);
 
+	/*
+	 * 设置下载速度系数，用于边玩边下载控制
+	 * 	@param f - 下载速度系数[0~1]: 0取消限速
+	 */
+	void set_speedfactor(float f);
+
 protected:
-	CCell* post_desired(const std::string& name, ecelltype_t type, int priority, void* user_context = NULL, ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
-	void on_task_finish(CCell* cell);
-
-	static void* cells_working(void* context);
-
+	CCell* post_desired(const std::string& _name, ecelltype_t type, int priority, void* user_context = NULL, ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
+	
 private:
+	//
+	// 以下函数只在dispatch线程中调用
+	//
+	static void* cells_working(void* context);
+	void on_task_finish(CCell* cell);
 	void cdf_setupindex(CCell* cell);
 	void cdf_postload(CCellTask* task);
+	void ghost_working();
 
 protected:
 	CRegulation 		m_rule;
@@ -182,6 +191,8 @@ protected:
 	CPriorityQueue<CCellTask*, CCellTask::less_t> m_desires;
 	// 正在loading的task表
 	taskmap_t m_taskloading;
+	// ghost工作列表
+	std::list<class CCell*> m_ghosttasks;
 
 	friend class CCreationFactory;
 };

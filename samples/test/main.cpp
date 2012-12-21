@@ -64,8 +64,11 @@ int main(int argc, char *argv[])
 	rule.auto_dispatch = true;
 	rule.only_local_mode = false;
 	rule.zip_type = e_zlib;
-	rule.zip_cdf = true;
-	rule.worker_thread_num = 1;
+	rule.zip_cdf = false;
+	rule.worker_thread_num = 4;
+	rule.max_download_speed = 1024 * 1024 * 1; 
+	rule.enable_ghost_mode = true;
+	rule.max_ghost_download_speed = 1024 * 1024;
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("http://192.168.0.1/upload/");
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
@@ -91,11 +94,14 @@ int main(int argc, char *argv[])
 	//CUtils::sleep(5000);
 	//cells.resume();
 
+	CUtils::sleep(10 * 1000);
+	cells.set_speedfactor(0.5);
+
 	while(true)
 	{
-		CUtils::sleep(1000);
+		CUtils::sleep(500);
 		if (!rule.auto_dispatch)
-			cells.tick_dispatch();
+			cells.tick_dispatch(0.05f);
 	}
 
 	cells.remove_observer(&obs);

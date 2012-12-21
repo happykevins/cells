@@ -17,6 +17,8 @@
 #include "CCells.h"
 #include "CCreationFactory.h"
 
+#define BYTES_TO_FLUSH (1024 * 512)
+
 namespace cells
 {
 
@@ -37,8 +39,9 @@ void* CCreationWorker::working(void* context)
 	return 0;
 }
 
-CCreationWorker::CCreationWorker(CCreationFactory* host) :
-		m_host(host), m_working(true), m_downloadhandle(this)
+CCreationWorker::CCreationWorker(CCreationFactory* host, size_t no) :
+		m_host(host), m_workno(no), m_working(true), m_downloadhandle(this),
+		m_downloadbytes(0), m_cachedbytes(0)
 {
 	assert(host);
 	int ret = sem_init(&m_sem, 0, 0);
@@ -79,9 +82,9 @@ void CCreationWorker::do_work()
 	std::stringstream ss;
 	ss << m_host->m_host->regulation().local_url << cell->m_name;
 	std::string localurl = ss.str();
-	ss << m_host->m_host->regulation().zip_tmp_suffix;
+	ss << m_host->m_host->regulation().tempfile_suffix;
 	std::string localtmpurl = ss.str();
-	printf("local path=%s\n", localurl.c_str());
+	CLogD("local path=%s\n", localurl.c_str());
 
 	// open local file
 	FILE* fp = fopen(localurl.c_str(), "rb");
@@ -145,9 +148,6 @@ void CCreationWorker::do_work()
 		cell->m_stream = NULL;
 		fclose(fp);
 	}
-	
-	// before download do congestion control
-	congestion_control();
 
 	std::string downloadurl = localurl;
 	bool need_decompress = false;
@@ -189,7 +189,7 @@ void CCreationWorker::do_work()
 		{
 			if ( !work_decompress(downloadurl.c_str(), localurl.c_str()) )
 			{
-				printf("file decompress failed: name=%s;\n", cell->m_name.c_str());
+				CLogE("file decompress failed: name=%s;\n", cell->m_name.c_str());
 				cell->m_errorno = e_loaderr_decompress_failed;
 			}
 		}
@@ -236,12 +236,6 @@ void CCreationWorker::do_work()
 	work_finished(cell);	
 }
 
-bool CCreationWorker::is_free()
-{
-	CMutexScopeLock(m_queue.mutex());
-	return m_queue.empty();
-}
-
 size_t CCreationWorker::workload()
 {
 	CMutexScopeLock(m_queue.mutex());
@@ -250,26 +244,25 @@ size_t CCreationWorker::workload()
 
 void CCreationWorker::work_finished(CCell* cell)
 {
-	// increase the download times counter
-	cell->m_download_times++;
-
 	// notify factory work done!
 	m_host->notify_work_finished(cell);
 }
 
-bool CCreationWorker::congestion_control()
+size_t CCreationWorker::get_downloadbytes()
 {
-	// TODO: 实现拥塞控制算法
-	CUtils::sleep(10);
+	return m_downloadbytes;
+}
 
-	return true;
+size_t CCreationWorker::calc_maxspeed()
+{
+	return m_host->suggest_maxspeed();
 }
 
 bool CCreationWorker::work_verify_local(CCell* cell)
 {
 	if (cell->m_hash.empty())
 	{
-		printf("hash code not specified: name=%s;\n", cell->m_name.c_str());
+		CLogI("hash code not specified: name=%s;\n", cell->m_name.c_str());
 		return false;
 	}
 
@@ -281,12 +274,12 @@ bool CCreationWorker::work_verify_local(CCell* cell)
 
 	if ( md5str != cell->m_hash )
 	{
-		printf("hash verify failed: name=%s; cdf_hash=%s, file_hash=%s\n", cell->m_name.c_str(), cell->m_hash.c_str(), md5str.c_str());
+		CLogD("hash verify failed: name=%s; cdf_hash=%s, file_hash=%s\n", cell->m_name.c_str(), cell->m_hash.c_str(), md5str.c_str());
 		return false;
 	}
 	else
 	{
-		printf("hash verify success: name=%s; hash=%s\n", cell->m_name.c_str(), cell->m_hash.c_str());
+		CLogD("hash verify success: name=%s; hash=%s\n", cell->m_name.c_str(), cell->m_hash.c_str());
 	}
 
 	return true;
@@ -304,9 +297,12 @@ bool CCreationWorker::work_download_remote(CCell* cell)
 	bool result = m_downloadhandle.download(cell, ss.str().c_str());
 
 	if ( result )
-		printf("download cell success: name=%s\n", cell->m_name.c_str());
+		CLogD("download cell success: name=%s\n", cell->m_name.c_str());
 	else
-		printf("download cell failed: name=%s\n", cell->m_name.c_str());
+		CLogI("download cell failed: name=%s\n", cell->m_name.c_str());
+
+	// increase the download times counter
+	cell->m_download_times++;
 
 	return result;
 }
@@ -337,7 +333,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				cells_section->FirstAttribute(); cells_attr; cells_attr =
 				cells_attr->Next())
 			{
-				//printf("%s=%s\n", cells_attr->Name(), cells_attr->Value());
+				//CLogD("%s=%s\n", cells_attr->Name(), cells_attr->Value());
 				ret_cdf->m_props.insert(
 					std::make_pair(cells_attr->Name(),
 					cells_attr->Value()));
@@ -367,7 +363,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 					cell_section->FirstAttribute(); cell_attr; cell_attr =
 					cell_attr->Next())
 				{
-					//printf("%s=%s\n", cell_attr->Name(), cell_attr->Value());
+					//CLogD("%s=%s\n", cell_attr->Name(), cell_attr->Value());
 					cell->m_props.insert(
 						std::make_pair(cell_attr->Name(),
 						cell_attr->Value()));
@@ -385,12 +381,12 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 	// cdf file
 	if ( !cdf_result && cell->m_celltype == e_celltype_cdf )
 	{
-		printf("cdf setup failed!: name=%s\n", cell->m_name.c_str() );
+		CLogE("cdf setup failed!: name=%s\n", cell->m_name.c_str() );
 		return false;
 	}
 	else if ( cell->m_celltype == e_celltype_cdf )
 	{
-		printf("cdf setup success: name=%s, child=%d\n", cell->m_name.c_str(), (int)cell->m_cdf->m_subcells.size());
+		CLogI("cdf setup success: name=%s, child=%d\n", cell->m_name.c_str(), (int)cell->m_cdf->m_subcells.size());
 		return true;
 	}
 
@@ -398,5 +394,35 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 	return true;
 }
+
+bool CCreationWorker::on_download_bytes(size_t bytes)
+{
+	m_downloadbytes += bytes;
+	m_cachedbytes += bytes;
+
+	// check should flush
+	if ( m_cachedbytes >=  BYTES_TO_FLUSH)
+	{
+		m_cachedbytes = 0;
+		return true;
+	}
+	return false;
+}
+
+CGhostWorker::CGhostWorker(CCreationFactory* host, size_t no)
+	: CCreationWorker(host, no)
+{
+
+}
+CGhostWorker::~CGhostWorker()
+{
+
+}
+
+size_t CGhostWorker::calc_maxspeed()
+{
+	return m_host->m_host->regulation().max_ghost_download_speed;
+}
+
 
 } /* namespace cells */

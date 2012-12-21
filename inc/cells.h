@@ -13,8 +13,11 @@
 #include <map>
 #include <string>
 
-#define CELLS_DEFAULT_WORKERNUM		2
-#define CELLS_DEFAULT_ZIPTMP_SUFFIX	".tmp"
+#define CELLS_DEFAULT_WORKERNUM			4
+#define CELLS_WORKER_MAXWORKLOAD		2
+#define CELLS_DOWNLAOD_SPEED_NOLIMIT	(1024 * 1024 * 100) // 100MB
+#define CELLS_GHOST_DOWNLAOD_SPEED		(1024 * 32)			// 32KB
+#define CELLS_DEFAULT_ZIPTMP_SUFFIX		".tmp"
 
 namespace cells
 {
@@ -86,18 +89,22 @@ struct CRegulation
 	std::vector<std::string> remote_urls;
 	std::string local_url;
 	size_t worker_thread_num;
+	size_t max_download_speed;
 	bool auto_dispatch;
 	bool only_local_mode;				// 是否开启本地模式：本地文件不匹配也不进行download操作
 	bool enable_ghost_mode;				// 是否开启ghost模式
+	size_t max_ghost_download_speed;	// ghost的下载速度
 	bool enable_free_download;			// 是否开启自由下载模式：(默认关闭)，开启此模式可以自由需求cdf没有描述过的文件
 	eziptype_t zip_type;				// 压缩类型：0-未压缩；1-zlib
 	bool zip_cdf;						// cdf文件是否为压缩格式
-	const char* zip_tmp_suffix;			// 解压缩临时文件后缀
+	std::string tempfile_suffix;		// 解压缩临时文件后缀
 
 	// default value
-	CRegulation() : worker_thread_num(CELLS_DEFAULT_WORKERNUM), auto_dispatch(false), only_local_mode(false), 
-		enable_ghost_mode(false), enable_free_download(false), zip_type(e_nozip), zip_cdf(false),
-		zip_tmp_suffix(CELLS_DEFAULT_ZIPTMP_SUFFIX)
+	CRegulation() : worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLAOD_SPEED_NOLIMIT),
+		auto_dispatch(false), only_local_mode(false), 
+		enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLAOD_SPEED),
+		enable_free_download(false), zip_type(e_nozip), zip_cdf(false),
+		tempfile_suffix(CELLS_DEFAULT_ZIPTMP_SUFFIX)
 	{}
 };
 

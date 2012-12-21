@@ -9,8 +9,8 @@
 #define CUTILS_H_
 
 #include "CPlatform.h"
-#include <stdlib.h>
-#include <string>
+#include "md5.h"
+#include "zpip.h"
 
 namespace cells
 {
@@ -43,6 +43,12 @@ public:
 		//return 0;
 		return str == NULL ? 0 : ::atoi(str);
 	}
+
+	// get time of day
+	static bool gettimeofday(timeval_t* tv, void* tz);
+
+	// get elapsed seconds quickly
+	static double gettime_seconds();
 
 	// zlib compress & decompress
 	static int compress(const char* file_in, const char* file_out, int level = -1);

@@ -61,6 +61,21 @@ bool process_file(string full_path, string rel_path, string name)
 		return false;
 	}
 
+	ret = fseek(input_fp, 0, SEEK_END);  
+	assert_break(ret == 0);
+	size_t of_size = ftell(input_fp); 
+	ret = fseek(input_fp, 0, SEEK_SET);  
+	assert_break(ret == 0);
+
+	if ( of_size == 0 )
+	{
+		// error!
+		fclose(input_fp);
+		fprintf(s_process_log_fp, "[error]zero size input file: %s\n", input_file.c_str() );
+		s_file_err_counter++;
+		return false;
+	}
+
 	output_fp = fopen(output_file.c_str(), "wb+");
 	if ( output_fp == NULL )
 	{
@@ -84,9 +99,6 @@ bool process_file(string full_path, string rel_path, string name)
 
 	string of_md5str = CUtils::filehash_md5str(input_fp, s_data_buf, sizeof(s_data_buf));
 	string zf_md5str;
-	ret = fseek(input_fp, 0, SEEK_END);  
-	assert_break(ret == 0);
-	size_t of_size = ftell(input_fp); 
 	size_t zf_size = 0;
 
 	if ( of_size == 0 )

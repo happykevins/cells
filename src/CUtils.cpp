@@ -7,37 +7,51 @@
 
 #include "CUtils.h"
 
-#include <stdio.h>
-#include <sstream>
-#include <algorithm>
-#include "md5.h"
-#include "zpip.h"
-
-#if defined(_WIN32)
-	#include <direct.h>
-	#include <io.h>
-#else // __linux__ 
-　　#include <sys/stat.h>
-　　#include <sys/types.h>
-	#include <unistd.h>
-#endif
-
 
 namespace cells
 {
+
+bool CUtils::gettimeofday(timeval_t* tv, void* tz)
+{
+#if defined(_WIN32)
+	if (tv)
+	{
+		LARGE_INTEGER liTime, liFreq;
+		QueryPerformanceFrequency( &liFreq );
+		QueryPerformanceCounter( &liTime );
+		tv->tv_sec     = (long)( liTime.QuadPart / liFreq.QuadPart );
+		tv->tv_usec    = (long)( liTime.QuadPart * 1000000.0 / liFreq.QuadPart - tv->tv_sec * 1000000.0 );
+		return true;
+	}
+	return false;
+#else
+	return ::gettimeofday((timeval*)tv, (timezone*)tz) == 0;
+#endif
+}
+
+double CUtils::gettime_seconds()
+{
+	timeval_t tv;
+	if ( CUtils::gettimeofday(&tv, NULL) )
+	{
+		return tv.tv_sec + tv.tv_usec / 1000000.0f;
+	}
+
+	return .0f;
+}
 
 int CUtils::compress(const char* file_in, const char* file_out, int level /*= -1*/)
 {
 	FILE* fin = fopen(file_in, "rb");
 	if ( !fin )
 	{
-		printf("CUtils::compress: open input file failed %s\n", file_in);
+		CLogD("CUtils::compress: open input file failed %s\n", file_in);
 		return -1;
 	}
 	FILE* fout = fopen(file_out, "wb+");
 	if ( !fout )
 	{
-		printf("CUtils::compress: open output file failed %s\n", file_out);
+		CLogD("CUtils::compress: open output file failed %s\n", file_out);
 		fclose(fin);
 		return -1;
 	}
@@ -63,13 +77,13 @@ int CUtils::decompress(const char* file_in, const char* file_out)
 	FILE* fin = fopen(file_in, "rb");
 	if ( !fin )
 	{
-		printf("CUtils::decompress: open input file failed %s\n", file_in);
+		CLogD("CUtils::decompress: open input file failed %s\n", file_in);
 		return -1;
 	}
 	FILE* fout = fopen(file_out, "wb+");
 	if ( !fout )
 	{
-		printf("CUtils::decompress: open output file failed %s\n", file_out);
+		CLogD("CUtils::decompress: open output file failed %s\n", file_out);
 		fclose(fin);
 		return -1;
 	}

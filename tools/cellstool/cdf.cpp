@@ -150,6 +150,8 @@ void setup_index()
 	// close
 	fclose(s_files_outputfile_fp);
 	fclose(s_folders_outputfile_fp);
+
+	fprintf(s_process_log_fp, "[info]setup index from files list, count=%d\n", s_idxmap.size() );
 }
 
 void setup_tasks()
@@ -189,6 +191,8 @@ void setup_tasks()
 
 		s_tasks.push_back(attrs);
 	} while(has_next);
+
+	fprintf(s_process_log_fp, "[info]create %d cdf tasks from file %s\n", s_tasks.size(),  s_cdf_input_idxfile.c_str());
 
 	fclose(in_cdf_index_fp);
 }
@@ -298,6 +302,7 @@ bool process_cdf(string input_file, string output_file, string rel_file)
 		}
 		s_idxmap.insert(std::make_pair(rel_file, attr));
 
+		fprintf(s_process_log_fp, "[info]create cdf file %s [OK]\n", rel_file.c_str());
 	} while(0); // do
 
 	fclose(input_fp);
@@ -450,15 +455,19 @@ void setup_freefiles()
 	}
 
 	// create freefiles list file
+	size_t free_counter = 0;
 	for( idxmap_t::iterator it = s_idxmap.begin(); it != s_idxmap.end(); it++ )
 	{
 		if ( !it->second->in_cdf )
 		{
+			free_counter++;
 			fprintf(freelist_fp, "%s\n", it->first.c_str());
 		}
 	}
 
 	fclose(freelist_fp);
+
+	fprintf(s_process_log_fp, "[info] create cdf %s for free files num=%d \n", s_freefiles_cdf_name.c_str(), free_counter);
 
 	// create freefiles task
 	task_attr task;
@@ -483,10 +492,10 @@ void build_cdf(string input_path, string output_path, bool compress, int compres
 		error_msg("can't create log file!");
 	}
 
-	printf("***start cdf:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
+	printf("***start cdf builder:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
 		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, suffix.c_str());
 
-	fprintf(s_process_log_fp, "***start cdf:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
+	fprintf(s_process_log_fp, "***start cdf builder:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
 		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, suffix.c_str());
 
 	s_inputpath = input_path;
@@ -500,9 +509,10 @@ void build_cdf(string input_path, string output_path, bool compress, int compres
 	setup_cdfs();
 	setup_freefiles();
 
-	printf("***end cdf: \n --- (%d) error occured! \n",  s_error_counter);
+	printf("***end cdf builder: \n --- (%d) error occured! \n",  s_error_counter);
+	printf("***all done! \n");
 
-	fprintf(s_process_log_fp, "***end cdf: \n --- (%d) error occured! \n",  s_error_counter);
+	fprintf(s_process_log_fp, "***end cdf builder: \n --- (%d) error occured! \n",  s_error_counter);
 
 	fclose(s_process_log_fp);
 }

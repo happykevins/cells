@@ -36,26 +36,42 @@ public:
 	CCreationFactory(CCells* host, size_t worker_num);
 	virtual ~CCreationFactory();
 
-	// TODO: 根据负载情况，返回投递建议
-	bool should_post() { return true; }
-
 	// 投递一个任务
-	void post_work(CCell* cell);
+	void post_work(CCell* cell, bool ghost = false);
 
 	// 获得一个任务结果，如果没有返回NULL
 	CCell* pop_result();
 
-private:
+	// 获得负载
+	size_t count_workload();
+
+	// 获得工作worker的数量
+	size_t count_workingworks();
+
+	// 获得当前下载的字节数
+	size_t count_downloadbytes();
+
+	// 设置下载速度控制系数 0.0~1.0
+	void set_speedfactor(float f); 
+
+protected:
 	// worker thread callback
 	void notify_work_finished(CCell* cell);
+	// worker thread require speed suggestion
+	size_t suggest_maxspeed();
 
 private:
 	CCells* m_host;
+	const size_t m_worknum;
 	std::vector<CCreationWorker*> m_workers;
-	size_t m_task_counter;
+	CCreationWorker* m_ghostworker;
+	size_t m_task_counter; // 处理过的任务计数器
+	volatile float m_speedfactor;
 
 	CQueue<class CCell*> m_finished;
+
 	friend class CCreationWorker;
+	friend class CGhostWorker;
 };
 
 } /* namespace cells */

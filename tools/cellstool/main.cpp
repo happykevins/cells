@@ -33,14 +33,12 @@ void print_help()
 	printf("\t\t-i=... : input path; no default value.\n");
 	printf("\t\t-o=... : output path: no default value. \n");
 	printf("\t\t-z[=level] : compress file use zlib. can specify level for compress level, default is -1. \n");
-	printf("\t\t[-suffix=...] : suffix for hash file name. default - '.hash' \n");
 	printf("\n");
 
 	printf("\t-c --cdf : create cdf files for cells system.\n");
 	printf("\t\t-i=... : input path; no default value.\n");
 	printf("\t\t-o=... : output path: no default value. \n");
 	printf("\t\t-z[=level] : compress cdf use zlib. can specify level for compress level, default is -1. \n");
-	printf("\t\t[-suffix=...] : suffix for cdf file name. default - '.xml' \n");
 	printf("\n");
 }
 
