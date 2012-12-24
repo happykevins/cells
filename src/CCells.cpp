@@ -194,20 +194,16 @@ void CCells::tick_dispatch(double dt)
 	m_desires.lock();
 	if ( !m_desires.empty() )
 	{
-		bool only_ghost = regulation().enable_ghost_mode && m_desires.front()->ghost_task;
+		i_am_busy = true;
 
-		size_t max_workload = only_ghost ? CELLS_WORKER_MAXWORKLOAD : regulation().worker_thread_num * CELLS_WORKER_MAXWORKLOAD;
+		size_t max_workload = regulation().worker_thread_num * CELLS_WORKER_MAXWORKLOAD;
 		size_t now_workload = m_factory->count_workload();
 		size_t max_post_num = now_workload < max_workload ? max_workload - now_workload : 0;
-		if ( !only_ghost || max_post_num == 0 )
-		{
-			i_am_busy = true;
-		}
 
 		for( size_t i = 0; !m_desires.empty() && i < max_post_num; i++ )
 		{
 			CCellTask* task = m_desires.front();
-			m_factory->post_work(task->cell(), task->ghost_task);
+			m_factory->post_work(task->cell(), false);
 			m_desires.pop();
 			m_taskloading.insert(std::make_pair(task->cell(), task));
 		}
@@ -228,7 +224,7 @@ bool CCells::post_desire_cdf(const std::string& name,
 {
 	if ( name.empty() ) return false;
 
-	return post_desired(name, e_celltype_cdf, priority, user_context, cdf_load_type) != NULL;
+	return post_desired(name, e_state_file_cdf, priority, user_context, cdf_load_type) != NULL;
 }
 
 bool CCells::post_desire_file(const std::string& name, 
@@ -237,7 +233,7 @@ bool CCells::post_desire_file(const std::string& name,
 {
 	if ( name.empty() ) return false;
 
-	return post_desired(name, e_celltype_common, priority, user_context) != NULL;
+	return post_desired(name, e_state_file_common, priority, user_context) != NULL;
 }
 
 void CCells::register_observer(void* target, CFunctorBase* func)
@@ -267,7 +263,7 @@ void CCells::set_speedfactor(float f)
 }
 
 
-CCell* CCells::post_desired(const std::string& _name, ecelltype_t type, int priority, void* user_context, ecdf_loadtype_t cdf_load_type)
+CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int priority, void* user_context, ecdf_loadtype_t cdf_load_type)
 {
 	assert(priority <= e_priority_exclusive);
 	if ( priority > e_priority_exclusive ) priority = e_priority_exclusive;
@@ -287,7 +283,7 @@ CCell* CCells::post_desired(const std::string& _name, ecelltype_t type, int prio
 	cellidx_t::iterator it = m_cellidx.find(name);
 	if (it == m_cellidx.end())
 	{
-		if ( m_rule.enable_free_download || type == e_celltype_cdf )
+		if ( m_rule.enable_free_download || type == e_state_file_cdf )
 		{
 			// desire a new cell
 			cell = new CCell(name, "", type);
@@ -320,10 +316,6 @@ CCell* CCells::post_desired(const std::string& _name, ecelltype_t type, int prio
 	// create a task
 	CCellTask* task = new CCellTask(cell, priority, type, user_context);
 	task->cdf_loadtype = cdf_load_type;
-	if ( regulation().enable_ghost_mode && priority == e_priority_ghost )
-	{
-		task->ghost_task = true;
-	}
 
 	// auto_dispatch 添加到desire队列
 	m_desires.lock();
@@ -348,7 +340,7 @@ void CCells::on_task_finish(CCell* cell)
 			(int)cell->m_download_times);
 
 		// 处理cdf
-		if ( cell->m_celltype == e_celltype_cdf && cell->m_cdf )
+		if ( cell->m_celltype == e_state_file_cdf && cell->m_cdf )
 		{
 			cdf_setupindex(cell);
 		}
@@ -376,7 +368,7 @@ void CCells::on_task_finish(CCell* cell)
 				cell->m_name.c_str(), cell->m_cellstate, cell->m_errorno);
 
 			// 处理cdf
-			if ( cell->m_celltype == e_celltype_cdf && cell->m_cdf )
+			if ( cell->m_celltype == e_state_file_cdf && cell->m_cdf )
 			{
 				cdf_setupindex(cell);
 			}
@@ -390,15 +382,21 @@ void CCells::on_task_finish(CCell* cell)
 		}
 	}
 
-	// get tasks
+	//
+	// dispatch tasks
+	//
+	
+	bool all_done_edge_trigger = false; // 用于边界触发
 	taskmap_t::_Pairii range = m_taskloading.equal_range(cell);
 	for ( taskmap_t::iterator it = range.first; it != range.second; it++ )
 	{
+		all_done_edge_trigger = true;
+
 		CCellTask* task = it->second;
 		CCell* cell = task->cell();
 
 		// 处理是否加载cdf内容
-		if ( cell->m_celltype == e_celltype_cdf && cell->m_cdf )
+		if ( cell->m_celltype == e_state_file_cdf && cell->m_cdf )
 		{
 			// check cdf index
 			m_cdfidx.lock();
@@ -408,68 +406,98 @@ void CCells::on_task_finish(CCell* cell)
 				cdf_postload(task);
 		}
 
-		// ghost 任务不回调
-		if ( task->ghost_task )
-		{
-			continue;
-		}
-
 		// notify observers
-		m_observers.lock();
-		for (observeridx_t::iterator it = m_observers.begin();
-			it != m_observers.end(); it++)
+		if ( cell->m_celltype == e_state_file_cdf )
 		{
-			if ( cell->m_celltype == e_celltype_cdf )
+			if ( cell->m_cdf )
 			{
-				if ( cell->m_cdf )
+				props_list_t props_list;
+
+				props_list.insert(std::make_pair(cell->m_name, &(cell->m_props)));
+
+				for ( celllist_t::iterator sub_it = cell->m_cdf->m_subcells.begin(); sub_it != cell->m_cdf->m_subcells.end(); sub_it++ )
 				{
-					props_list_t props_list;
-
-					props_list.insert(std::make_pair(cell->m_name, &(cell->m_props)));
-
-					for ( celllist_t::iterator sub_it = cell->m_cdf->m_subcells.begin(); sub_it != cell->m_cdf->m_subcells.end(); sub_it++ )
-					{
-						props_list.insert(std::make_pair((*sub_it)->m_name, &((*sub_it)->m_props)));
-					}
-
-					(*(it->second))(
-						cell->m_name,
-						cell->m_celltype,
-						cell->m_errorno,
-						&(cell->m_cdf->m_props),
-						&props_list,
-						task->context());
+					props_list.insert(std::make_pair((*sub_it)->m_name, &((*sub_it)->m_props)));
 				}
-				else
-				{
-					(*(it->second))(
-						cell->m_name,
-						cell->m_celltype,
-						cell->m_errorno,
-						NULL,
-						NULL,
-						task->context());
-				}
+
+				notify_observers(
+					cell->m_celltype,
+					cell->m_name,
+					cell->m_errorno,
+					&(cell->m_cdf->m_props),
+					&props_list,
+					task->context());
 			}
 			else
 			{
-				(*(it->second))(
-					cell->m_name,
+				notify_observers(
 					cell->m_celltype,
+					cell->m_name,
 					cell->m_errorno,
-					&(cell->m_props),
+					NULL,
 					NULL,
 					task->context());
 			}
 		}
-		m_observers.unlock();
+		else
+		{
+			notify_observers(
+				cell->m_celltype,
+				cell->m_name,
+				cell->m_errorno,
+				&(cell->m_props),
+				NULL,
+				task->context());
+		}
 
 		delete task;
 	}
 
 	m_taskloading.erase(range.first, range.second);
+
+	//
+	// check state
+	//
+
+	if ( all_done_edge_trigger )
+	{
+		bool all_task_done = true;
+
+		m_desires.lock();
+		if ( !m_desires.empty() )
+		{
+			all_task_done = false;
+		}
+		m_desires.unlock();
+
+		if ( !m_taskloading.empty() )
+		{
+			all_task_done = false;
+		}
+
+		if ( all_task_done )
+		{
+			notify_observers(e_state_event_alldone, std::string(""), e_loaderr_ok, NULL, NULL, NULL);
+		}
+	}
 }
 
+void CCells::notify_observers(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
+{
+	m_observers.lock();
+	for (observeridx_t::iterator it = m_observers.begin();
+		it != m_observers.end(); it++)
+	{
+		(*(it->second))(
+			type,
+			name,
+			error_no,
+			props,
+			sub_props,
+			context);
+	}
+	m_observers.unlock();
+}
 
 void CCells::cdf_setupindex(CCell* cell)
 {
@@ -509,7 +537,7 @@ void CCells::cdf_setupindex(CCell* cell)
 		}
 		else
 		{
-			// 将cdf的cell插入idx
+			// 将cell插入idx
 			m_cellidx.insert(subcell->m_name, subcell);
 			m_cellidx.unlock();
 
@@ -576,7 +604,7 @@ void CCells::cdf_postload(CCellTask* task)
 			}
 		}
 
-		if ( subcell->m_celltype == e_celltype_cdf )
+		if ( subcell->m_celltype == e_state_file_cdf )
 		{
 			//
 			// cdf file
@@ -618,13 +646,16 @@ void CCells::cdf_postload(CCellTask* task)
 
 void CCells::ghost_working()
 {
-	for ( size_t i = 0; !m_ghosttasks.empty() && i < 100; i++ )
+	size_t task_to_post = CELLS_WORKER_MAXWORKLOAD - m_factory->count_workload();
+	task_to_post = task_to_post < 0 ? 0 : task_to_post;
+
+	for ( size_t i = 0; !m_ghosttasks.empty() && i < task_to_post; i++ )
 	{
 		CCell* cell = m_ghosttasks.front();
 		m_ghosttasks.pop_front();
 		if ( cell->m_cellstate == CCell::unknow )
 		{
-			this->post_desired(cell->m_name, cell->m_celltype, e_priority_ghost, NULL, e_cdf_loadtype_index);
+			m_factory->post_work(cell, true);
 			break;
 		}
 	}

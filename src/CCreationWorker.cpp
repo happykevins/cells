@@ -84,6 +84,8 @@ void CCreationWorker::do_work()
 	std::string localurl = ss.str();
 	ss << m_host->m_host->regulation().tempfile_suffix;
 	std::string localtmpurl = ss.str();
+	ss << m_host->m_host->regulation().temphash_suffix;
+	std::string localhashurl = ss.str();
 	CLogD("local path=%s\n", localurl.c_str());
 
 	// open local file
@@ -107,7 +109,7 @@ void CCreationWorker::do_work()
 		// check local file
 		//
 
-		// only local mode hack, do not verify file!
+		// only local mode hack, ignore file verify!
 		if ( m_host->m_host->regulation().only_local_mode )
 		{
 			fclose(fp);
@@ -121,12 +123,9 @@ void CCreationWorker::do_work()
 			return;
 		}
 
-		cell->m_stream = fp;
-
 		// verify local file
-		if ( work_verify_local(cell) )
+		if ( work_verify_local(cell, fp) )
 		{
-			cell->m_stream = NULL;
 			fclose(fp);
 
 			// patchup local file
@@ -142,47 +141,36 @@ void CCreationWorker::do_work()
 		{
 			// 虽然本地验证失败，但这里不用设置错误码，后面还要下载再验证
 			//cell->m_errorno == e_loaderr_verify_failed;
+			CLogD("local file exist, but verfiy failed, try downloading. %s \n", localurl.c_str());
 		}
 
 		// close file
-		cell->m_stream = NULL;
 		fclose(fp);
 	}
 
-	std::string downloadurl = localurl;
+	// setup download environment
+	std::string downloadurl = localtmpurl;
 	bool need_decompress = false;
 	// check need tmp file
 	if ( m_host->m_host->regulation().zip_type != 0 && 
-		( cell->m_celltype == e_celltype_common || m_host->m_host->regulation().zip_cdf ) )
+		( cell->m_celltype == e_state_file_common || m_host->m_host->regulation().zip_cdf ) )
 	{
-		downloadurl = localtmpurl;
 		need_decompress = true;
 	}
 
-	// check local file
-	fp = fopen(downloadurl.c_str(), "wb+");
-	if (!fp)
-	{
-		// build path directory, try again!
-		CUtils::builddir(downloadurl.c_str());
-		fp = fopen(downloadurl.c_str(), "wb+");
-		if ( !fp )
-		{
-			cell->m_errorno = e_loaderr_openfile_failed;
-			work_finished(cell);
-			return;
-		}
-	}
-	cell->m_stream = fp;
+	// download
+	eloaderror_t download_errno = work_download_remote(
+		cell,
+		need_decompress,
+		downloadurl.c_str(), 
+		localhashurl.c_str());
 
 	// download & patchup cell
-	if ( work_download_remote(cell) )
+	if (  download_errno == e_loaderr_ok )
 	{
 		//
 		// download success!
 		//
-		cell->m_stream = NULL;
-		fclose(fp);
 		
 		// decompress
 		if ( need_decompress )
@@ -193,6 +181,17 @@ void CCreationWorker::do_work()
 				cell->m_errorno = e_loaderr_decompress_failed;
 			}
 		}
+		else
+		{
+			// change name from download temp to local
+			if ( CUtils::access(localurl.c_str(), 0) )
+			{
+				bool rm_ret = CUtils::remove(localurl.c_str());
+				assert(rm_ret);
+			}
+			bool rename_ret = CUtils::rename(downloadurl.c_str(), localurl.c_str());
+			assert(rename_ret);
+		}
 
 		// verify downloaded file
 		if ( cell->m_errorno == e_loaderr_ok && !cell->m_hash.empty() )
@@ -200,12 +199,10 @@ void CCreationWorker::do_work()
 			fp = fopen(localurl.c_str(), "rb");
 			if (fp)
 			{
-				cell->m_stream = fp;
-				if ( !work_verify_local(cell) )
+				if ( !work_verify_local(cell, fp) )
 				{
 					cell->m_errorno = e_loaderr_verify_failed;
 				}
-				cell->m_stream = NULL;
 				fclose(fp);
 			}
 			else
@@ -228,9 +225,7 @@ void CCreationWorker::do_work()
 		//
 		// download failed
 		//
-		cell->m_stream = NULL;
-		fclose(fp);
-		cell->m_errorno = e_loaderr_download_failed;
+		cell->m_errorno = download_errno;
 	}
 
 	work_finished(cell);	
@@ -258,7 +253,7 @@ size_t CCreationWorker::calc_maxspeed()
 	return m_host->suggest_maxspeed();
 }
 
-bool CCreationWorker::work_verify_local(CCell* cell)
+bool CCreationWorker::work_verify_local(CCell* cell, FILE* fp)
 {
 	if (cell->m_hash.empty())
 	{
@@ -267,8 +262,7 @@ bool CCreationWorker::work_verify_local(CCell* cell)
 	}
 
 	// 验证本地文件hash
-	assert(cell->m_stream);
-	FILE* fp = (FILE*)cell->m_stream;
+	assert(fp);
 
 	std::string md5str = CUtils::filehash_md5str(fp, m_databuf, sizeof(m_databuf));
 
@@ -285,33 +279,125 @@ bool CCreationWorker::work_verify_local(CCell* cell)
 	return true;
 }
 
-bool CCreationWorker::work_download_remote(CCell* cell)
+eloaderror_t CCreationWorker::work_download_remote(CCell* cell, bool zip_mark, const char* localurl, const char* localhashurl)
 {
+	//
+	// 检查hash文件，是否需要断点续传
+	//
+	bool bp_resume = false;
+	size_t bp_range_begin = 0;
+	if ( CUtils::access(localhashurl, 0) )
+	{
+		FILE* hash_fp = fopen(localhashurl, "r");
+		if ( hash_fp )
+		{
+			char tmp_buf[33];
+			if ( ::fgets(tmp_buf, 33, hash_fp) )
+			{
+				std::string bp_hash = CUtils::str_trim(std::string(tmp_buf));
+
+				if ( !cell->m_hash.empty() )
+				{
+					if ( (zip_mark && cell->m_zhash == bp_hash)
+						|| (!zip_mark && cell->m_hash == bp_hash ) )
+					{
+						bp_resume = true;
+					}
+				}
+			}
+		}
+
+		fclose(hash_fp);
+		CUtils::remove(localhashurl);
+	}
+
+	//
+	// create & check local file
+	//
+	FILE* fp = bp_resume ? 
+		fopen(localurl, "ab+"):
+		fopen(localurl, "wb+");
+	if (!fp)
+	{
+		bp_resume = false;
+
+		// build path directory, try again!
+		CUtils::builddir(localurl);
+		fp = fopen(localurl, "wb+");
+		if ( !fp )
+		{
+			CLogE("download error: can't create local file: name=%s\n", cell->m_name.c_str());
+			return e_loaderr_openfile_failed;
+		}	
+	}
+	// set bp range
+	if ( bp_resume )
+	{
+		fseek(fp, 0, SEEK_END);
+		bp_range_begin = (size_t)ftell(fp);
+	}
+
+	//
 	// make remote url
+	//
 	const std::vector<std::string>& urls = m_host->m_host->regulation().remote_urls;
 	int urlidx = cell->m_download_times % urls.size();
-
 	std::stringstream ss;
-	ss << urls[urlidx] << cell->m_name;
+	ss << urls[urlidx] << cell->m_name.c_str() << m_host->m_host->regulation().remote_zipfile_suffix;
 
-	bool result = m_downloadhandle.download(cell, ss.str().c_str());
+	//
+	// write bp resume file
+	//
+	if ( !cell->m_hash.empty() )
+	{
+		FILE* hash_fp = fopen(localhashurl, "w+");
+		if ( hash_fp )
+		{
+			if ( zip_mark )
+				fprintf(hash_fp, "%s", cell->m_zhash.c_str());
+			else
+				fprintf(hash_fp, "%s", cell->m_hash.c_str());
+			fclose(hash_fp);
+		}
+	}
 
-	if ( result )
-		CLogD("download cell success: name=%s\n", cell->m_name.c_str());
-	else
-		CLogI("download cell failed: name=%s\n", cell->m_name.c_str());
+	//
+	// perform download
+	//
+	CDownloader::edownloaderr_t result = m_downloadhandle.download(ss.str().c_str(), fp, bp_resume, bp_range_begin);
+
+	//
+	// close out
+	//
+	fclose(fp);
 
 	// increase the download times counter
 	cell->m_download_times++;
 
-	return result;
+	// no download error
+	if ( result == CDownloader::e_downloaderr_ok )
+	{
+		CUtils::remove(localhashurl);
+		CLogD("download cell success: name=%s\n", cell->m_name.c_str());
+		return e_loaderr_ok;
+	}
+
+	// errors can't bp resume
+	if ( result == CDownloader::e_downloaderr_other_nobp )
+	{
+		CUtils::remove(localhashurl);
+	}
+
+	CLogI("download cell failed: name=%s\n", cell->m_name.c_str());
+
+	return e_loaderr_download_failed;
 }
 
 bool CCreationWorker::work_decompress(const char* tmplocalurl, const char* localurl)
 {
 	bool ret = CUtils::decompress(tmplocalurl, localurl) == 0;
-	int rm_ret = remove(tmplocalurl);
-	assert(rm_ret == 0);
+	bool rm_ret = CUtils::remove(tmplocalurl);
+	assert(rm_ret);
 	return ret;
 }
 
@@ -321,7 +407,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 	// setup cdf
 	TiXmlDocument doc;
-	if ( cell->m_celltype == e_celltype_cdf && doc.LoadFile(localurl) )
+	if ( cell->m_celltype == e_state_file_cdf && doc.LoadFile(localurl) )
 	{
 		std::set<const char*> name_set;
 		CCDF* ret_cdf = new CCDF(cell);
@@ -351,13 +437,15 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				}
 
 				const char* cell_hash = cell_section->Attribute(CDF_CELL_HASH);
+				const char* cell_zhash = cell_section->Attribute(CDF_CELL_ZHASH);
 
-				ecelltype_t cell_type = e_celltype_common;
+				estatetype_t cell_type = e_state_file_common;
 				bool is_cdf = CUtils::atoi(cell_section->Attribute(CDF_CELL_CDF)) == 1;
 				if (is_cdf)
-					cell_type = e_celltype_cdf;
+					cell_type = e_state_file_cdf;
 
 				CCell* cell = new CCell(cell_name, cell_hash, cell_type);
+				cell->m_zhash = cell_zhash;
 
 				for (const TiXmlAttribute* cell_attr =
 					cell_section->FirstAttribute(); cell_attr; cell_attr =
@@ -379,12 +467,12 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 	doc.Clear();
 
 	// cdf file
-	if ( !cdf_result && cell->m_celltype == e_celltype_cdf )
+	if ( !cdf_result && cell->m_celltype == e_state_file_cdf )
 	{
 		CLogE("cdf setup failed!: name=%s\n", cell->m_name.c_str() );
 		return false;
 	}
-	else if ( cell->m_celltype == e_celltype_cdf )
+	else if ( cell->m_celltype == e_state_file_cdf )
 	{
 		CLogI("cdf setup success: name=%s, child=%d\n", cell->m_name.c_str(), (int)cell->m_cdf->m_subcells.size());
 		return true;

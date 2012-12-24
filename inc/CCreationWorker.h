@@ -38,8 +38,8 @@ public:
 	size_t get_downloadbytes();
 
 protected:
-	virtual bool work_verify_local(CCell* cell);
-	virtual bool work_download_remote(CCell* cell);
+	virtual bool work_verify_local(CCell* cell, FILE* fp);
+	virtual eloaderror_t work_download_remote(CCell* cell, bool zip_mark, const char* localurl, const char* localhashurl);
 	virtual bool work_decompress(const char* tmplocalurl, const char* localurl);
 	virtual bool work_patchup_cell(CCell* cell, const char* localurl);
 	virtual void work_finished(CCell* cell);

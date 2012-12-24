@@ -33,21 +33,21 @@ typedef std::list<class CCell*> celllist_t;
 class CCell
 {
 public:
-	enum cellstate_t
+	enum ecellstate_t
 	{
 		unknow, loading, verified, error
 	};
 
-	CCell(const std::string& _name, const std::string& _hash, ecelltype_t _celltype = e_celltype_common);
+	CCell(const std::string& _name, const std::string& _hash, estatetype_t _celltype = e_state_file_common);
 	~CCell();
 
 	const std::string m_name;
 	std::string m_hash;
+	std::string m_zhash;
 	props_t m_props;
 	volatile int m_cellstate;
-	ecelltype_t m_celltype;
+	estatetype_t m_celltype;
 
-	void* m_stream;
 	size_t m_download_times;
 	eloaderror_t m_errorno;
 

@@ -13,9 +13,9 @@ namespace cells
 {
 
 CCell::CCell(const std::string& _name, const std::string& _hash /*= NULL*/,
-		ecelltype_t _celltype /*= common*/) :
+		estatetype_t _celltype /*= common*/) :
 		m_name(_name), m_hash(_hash), m_cellstate(unknow), m_celltype(_celltype), 
-		m_stream(NULL), m_download_times(0), m_errorno(e_loaderr_ok), m_cdf(NULL)
+		m_download_times(0), m_errorno(e_loaderr_ok), m_cdf(NULL)
 {
 }
 

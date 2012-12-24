@@ -17,7 +17,9 @@
 #define CELLS_WORKER_MAXWORKLOAD		2
 #define CELLS_DOWNLAOD_SPEED_NOLIMIT	(1024 * 1024 * 100) // 100MB
 #define CELLS_GHOST_DOWNLAOD_SPEED		(1024 * 32)			// 32KB
-#define CELLS_DEFAULT_ZIPTMP_SUFFIX		".tmp"
+#define CELLS_REMOTE_ZIPFILE_SUFFIX		""
+#define CELLS_DEFAULT_TEMP_SUFFIX		".temp"
+#define CELLS_DEFAULT_HASH_SUFFIX		".hash"
 
 namespace cells
 {
@@ -29,8 +31,11 @@ extern const char* CDF_VERSION;			//= "version"	string
 extern const char* CDF_LOADALL;			//= "loadall"	boolean:		0 | 1
 extern const char* CDF_CELL_CDF;		//= "cdf"		boolean: 		0 | 1 : is 'e_celltype_cdf' type
 extern const char* CDF_CELL_NAME;		//= "name"		string
-extern const char* CDF_CELL_HASH;		//= "hash"		string
 extern const char* CDF_CELL_LOAD;		//= "load"		boolean:		0 | 1
+extern const char* CDF_CELL_HASH;		//= "hash"		string
+extern const char* CDF_CELL_SIZE;		//= "size"		int
+extern const char* CDF_CELL_ZHASH;		//= "zhash"		string
+extern const char* CDF_CELL_ZSIZE;		//= "zsize"		int
 
 // 属性表
 typedef std::map<std::string, std::string> props_t; 
@@ -44,16 +49,16 @@ enum eziptype_t
 	e_zlib,
 };
 
-// 文件类型
-enum ecelltype_t
+// state类型
+enum estatetype_t
 {
-	e_celltype_common = 0, 
-	e_celltype_cdf = 1
+	e_state_file_common = 0, 
+	e_state_file_cdf = 1,
+	e_state_event_alldone = 3
 };
 
 // 优先级
 enum epriority_t {
-	e_priority_ghost		= -1,
 	e_priority_default 		= 0,
 	e_priority_exclusive 	= (unsigned short)-1, // 最大65535
 };
@@ -86,25 +91,29 @@ enum eloaderror_t
 //
 struct CRegulation
 {
-	std::vector<std::string> remote_urls;
-	std::string local_url;
-	size_t worker_thread_num;
-	size_t max_download_speed;
-	bool auto_dispatch;
+	std::vector<std::string> remote_urls;// 下载路径列表
+	std::string local_url;				// 本地存储路径
+	size_t worker_thread_num;			// 工作线程数
+	size_t max_download_speed;			// 下载速度上限
+	bool auto_dispatch;					// 是否启动自动派发线程
 	bool only_local_mode;				// 是否开启本地模式：本地文件不匹配也不进行download操作
 	bool enable_ghost_mode;				// 是否开启ghost模式
 	size_t max_ghost_download_speed;	// ghost的下载速度
 	bool enable_free_download;			// 是否开启自由下载模式：(默认关闭)，开启此模式可以自由需求cdf没有描述过的文件
 	eziptype_t zip_type;				// 压缩类型：0-未压缩；1-zlib
 	bool zip_cdf;						// cdf文件是否为压缩格式
-	std::string tempfile_suffix;		// 解压缩临时文件后缀
+
+	std::string remote_zipfile_suffix;	// remote端zip文件后缀
+	std::string tempfile_suffix;		// 临时下载文件后缀
+	std::string temphash_suffix;		// 临时hash文件后缀
 
 	// default value
 	CRegulation() : worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLAOD_SPEED_NOLIMIT),
-		auto_dispatch(false), only_local_mode(false), 
+		auto_dispatch(true), only_local_mode(false), 
 		enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLAOD_SPEED),
 		enable_free_download(false), zip_type(e_nozip), zip_cdf(false),
-		tempfile_suffix(CELLS_DEFAULT_ZIPTMP_SUFFIX)
+		remote_zipfile_suffix(CELLS_REMOTE_ZIPFILE_SUFFIX),
+		tempfile_suffix(CELLS_DEFAULT_TEMP_SUFFIX), temphash_suffix(CELLS_DEFAULT_HASH_SUFFIX)
 	{}
 };
 
@@ -115,20 +124,20 @@ class CFunctorBase
 {
 public:
 	virtual ~CFunctorBase(){}
-	virtual void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context) = 0;
+	virtual void operator() (estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context) = 0;
 };
 
 class CFunctorG : public CFunctorBase
 {
 public:
-	typedef void (*cb_func_g_t)(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
+	typedef void (*cb_func_g_t)(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
 	CFunctorG(cb_func_g_t cb_func) : m_cb_func(cb_func) {}
 	CFunctorG(const CFunctorG& other) : m_cb_func(other.m_cb_func) {}
 	CFunctorG() : m_cb_func(NULL) {}
 	virtual ~CFunctorG(){ m_cb_func = NULL; }
-	virtual void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
+	virtual void operator() (estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
-		m_cb_func(name, type, error_no, props, sub_props, context);
+		m_cb_func(type, name, error_no, props, sub_props, context);
 	}
 
 protected:
@@ -139,7 +148,7 @@ template<typename T>
 class CFunctorM : public CFunctorBase
 {
 public:
-	typedef void (T::*mfunc_t)(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
+	typedef void (T::*mfunc_t)(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
 	CFunctorM(T* _t, mfunc_t _f) : m_target(_t), m_func(_f) {}
 	CFunctorM(const CFunctorM<T>& other) : m_target(other.m_target), m_func(other.m_func) {}
 	void operator=(const CFunctorM<T>& other)
@@ -148,9 +157,9 @@ public:
 		m_func = other.m_func;
 	}
 
-	void operator() (const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
+	void operator() (estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
-		(m_target->*m_func)(name, type, error_no, props, sub_props, context);
+		(m_target->*m_func)(type, name, error_no, props, sub_props, context);
 	}
 
 protected:

@@ -67,6 +67,12 @@ public:
 	// build path directorys
 	static bool builddir(const char* path);
 
+	// rename file
+	static bool rename(const char* from, const char* to);
+
+	// remove file
+	static bool remove(const char* path);
+
 	// trim
 	static std::string str_trim(std::string& s);
 

@@ -167,6 +167,17 @@ bool CUtils::builddir(const char* path)
 	return true;
 }
 
+bool CUtils::rename(const char* from, const char* to)
+{
+	return 0 == ::rename(from, to);
+}
+
+// remove file
+bool CUtils::remove(const char* path)
+{
+	return 0 == ::remove(path);
+}
+
 // replace char
 size_t CUtils::str_replace_ch(std::string& str, char which, char to)
 {

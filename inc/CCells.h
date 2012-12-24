@@ -16,17 +16,13 @@
 // TODO: 监测系统接口
 // TODO: 对url列表的连接进行测速，优先选用最快的url，重试下载的cell是否要调整优先级，以免阻塞后续请求
 // TODO: 对加载线程的负载控制，可以启动多线程，但不一定都使用，根据负载来调节，减少libcurl阻塞带来的性能瓶颈
-// TODO: 断点续传功能
+// TODO: 对打包压缩文件的解压缩
 //
 namespace cells
 {
 
 class CCell;
 class CCreationFactory;
-
-typedef CMap<void*, CFunctorBase*> observeridx_t;
-typedef CMap<std::string, class CCell*> cellidx_t;
-typedef CMap<std::string, class CCell*> cdfidx_t;
 
 /*
 * CCellTask - desire task
@@ -40,20 +36,19 @@ class CCellTask
 private:
 	CCell*	m_cell;
 	int		m_priority;
-	ecelltype_t m_type;
+	estatetype_t m_type;
 	void*	m_context;
 
 public:
 	ecdf_loadtype_t cdf_loadtype;
-	bool ghost_task;
 
 	inline CCell* cell() { return m_cell; }
 	inline int priority() { return m_priority; }
-	inline ecelltype_t type() { return m_type; }
+	inline estatetype_t type() { return m_type; }
 	inline void* context() { return m_context;}
 
-	CCellTask(CCell* _cell, int _priority, ecelltype_t _type, void* _user_context = NULL) : 
-	m_cell(_cell), m_priority(_priority), m_type(_type), m_context(_user_context), cdf_loadtype(e_cdf_loadtype_config), ghost_task(false) {}
+	CCellTask(CCell* _cell, int _priority, estatetype_t _type, void* _user_context = NULL) : 
+	m_cell(_cell), m_priority(_priority), m_type(_type), m_context(_user_context), cdf_loadtype(e_cdf_loadtype_config) {}
 
 	// 用于按照priority的排序
 	struct less_t : public std::binary_function<CCellTask*, CCellTask*, bool>
@@ -62,6 +57,11 @@ public:
 		{ return __x->priority() < __y->priority(); }
 	};
 };
+
+typedef CMap<void*, CFunctorBase*> observeridx_t;
+typedef CPriorityQueue<CCellTask*, CCellTask::less_t> desiresque_t;
+typedef CMap<std::string, class CCell*> cellidx_t;
+typedef CMap<std::string, class CCell*> cdfidx_t;
 
 
 /*
@@ -168,7 +168,7 @@ public:
 	void set_speedfactor(float f);
 
 protected:
-	CCell* post_desired(const std::string& _name, ecelltype_t type, int priority, void* user_context = NULL, ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
+	CCell* post_desired(const std::string& _name, estatetype_t type, int priority, void* user_context = NULL, ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
 	
 private:
 	//
@@ -179,18 +179,17 @@ private:
 	void cdf_setupindex(CCell* cell);
 	void cdf_postload(CCellTask* task);
 	void ghost_working();
+	void notify_observers(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context);
 
 protected:
 	CRegulation 		m_rule;
 	CCreationFactory* 	m_factory;
 	volatile bool 		m_suspend;
 	cellidx_t 			m_cellidx;
-	cdfidx_t			m_cdfidx;	// cdf建立索引状态表
+	cdfidx_t			m_cdfidx;		// cdf建立索引状态表
 	observeridx_t		m_observers;
-
-	CPriorityQueue<CCellTask*, CCellTask::less_t> m_desires;
-	// 正在loading的task表
-	taskmap_t m_taskloading;
+	desiresque_t		m_desires;
+	taskmap_t			m_taskloading;	// 正在loading的task表
 	// ghost工作列表
 	std::list<class CCell*> m_ghosttasks;
 

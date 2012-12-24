@@ -15,18 +15,30 @@
 using namespace std;
 using namespace cells;
 
+
+bool cdf_ok = false;
+bool all_done = false;
 class Observer
 {
 public:
-	void on_finish(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
+	void on_finish(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 	{
-		if ( error_no == 0) return;
+		if ( type == e_state_event_alldone )
+		{
+			all_done = true;
+			printf("*****************************all task done*******************************\n");
+			return;
+		}
+		//if ( error_no == 0) return;
 		printf("**Observer::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
+
+		return;
 
 		if ( error_no != 0 )
 		{
 			return;
 		}
+
 
 		printf("--**Props:");
 		for (props_t::const_iterator it = props->begin(); it != props->end(); it++)
@@ -37,8 +49,7 @@ public:
 	}
 };
 
-bool cdf_ok = false;
-void on_finish(const std::string& name, ecelltype_t type, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
+void on_finish(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
 {
 	printf("**Global::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
 	if ( error_no != 0 )
@@ -63,16 +74,17 @@ int main(int argc, char *argv[])
 	CRegulation rule;
 	rule.auto_dispatch = true;
 	rule.only_local_mode = false;
+	//rule.zip_type = e_nozip;
 	rule.zip_type = e_zlib;
 	rule.zip_cdf = false;
-	rule.worker_thread_num = 4;
-	rule.max_download_speed = 1024 * 1024 * 1; 
+	rule.worker_thread_num = 1;
+	rule.max_download_speed = 1024 * 1024 * 10; 
 	rule.enable_ghost_mode = true;
 	rule.max_ghost_download_speed = 1024 * 1024;
 	rule.local_url = "./downloads/";
-	//rule.remote_urls.push_back("http://192.168.0.1/upload/");
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
-	rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
+	//rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
 
 	cells.initialize(rule);
 	//cells.suspend();
@@ -81,7 +93,13 @@ int main(int argc, char *argv[])
 	cells.register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
 	cells.post_desire_cdf("index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
-	cells.post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
+
+	//while( !all_done )
+	//{
+	//	CUtils::sleep(500);
+	//}
+
+	//cells.post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
 
 	//while (!cdf_ok)
 	//{
