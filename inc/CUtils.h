@@ -74,7 +74,7 @@ public:
 	static bool remove(const char* path);
 
 	// trim
-	static std::string str_trim(std::string& s);
+	static std::string str_trim(std::string s);
 
 	// replace char
 	static size_t str_replace_ch(std::string& str, char which, char to);

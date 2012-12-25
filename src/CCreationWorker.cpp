@@ -430,11 +430,20 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				cell_section = cell_section->NextSiblingElement())
 			{
 				const char* cell_name = cell_section->Attribute(CDF_CELL_NAME);
-				// 健壮性检测：忽略没有名字或重名
-				if (!cell_name || name_set.find(cell_name) != name_set.end())
+
+				if (!cell_name )
 				{
+					CLogI("null cell name in cdf: %s. \n", cell->m_name.c_str());
 					continue;
 				}
+				std::string cell_name_tmp = CUtils::str_trim(cell_name);
+				if ( cell_name_tmp.empty() )
+				{
+					CLogI("empty cell name in cdf: %s. \n", cell->m_name.c_str());
+					continue;
+				}
+				CUtils::str_replace_ch(cell_name_tmp, '\\', '/');
+				if ( cell_name_tmp.find_first_of('/') != 0 )	cell_name_tmp = "/" + cell_name_tmp;
 
 				const char* cell_hash = cell_section->Attribute(CDF_CELL_HASH);
 				const char* cell_zhash = cell_section->Attribute(CDF_CELL_ZHASH);
@@ -443,9 +452,14 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				bool is_cdf = CUtils::atoi(cell_section->Attribute(CDF_CELL_CDF)) == 1;
 				if (is_cdf)
 					cell_type = e_state_file_cdf;
+				if (!cell_hash)
+				{
+					CLogI("hash code not specified for %s. \n", cell_name);
+					cell_hash = "";
+				}
 
-				CCell* cell = new CCell(cell_name, cell_hash, cell_type);
-				cell->m_zhash = cell_zhash;
+				CCell* cell = new CCell(cell_name_tmp, cell_hash, cell_type);
+				if (cell_zhash) cell->m_zhash = cell_zhash;
 
 				for (const TiXmlAttribute* cell_attr =
 					cell_section->FirstAttribute(); cell_attr; cell_attr =

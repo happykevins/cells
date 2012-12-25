@@ -25,7 +25,7 @@ bool CUtils::gettimeofday(timeval_t* tv, void* tz)
 	}
 	return false;
 #else
-	return ::gettimeofday((timeval*)tv, (timezone*)tz) == 0;
+	return ::gettimeofday((timeval*)tv, (__timezone_ptr_t)tz) == 0;
 #endif
 }
 
@@ -130,7 +130,7 @@ bool CUtils::mkdir(const char* path)
 #if defined(_WIN32)
 	return ::mkdir(path) == 0;
 #else
-	return ::mkdir(path, 777) == 0;
+	return ::mkdir(path, S_IRWXU | S_IRWXG | S_IRWXO) == 0;
 #endif
 }
 
@@ -193,7 +193,7 @@ size_t CUtils::str_replace_ch(std::string& str, char which, char to)
 	return num;
 }
 
-std::string CUtils::str_trim(std::string& s)
+std::string CUtils::str_trim(std::string s)
 {
 	if (s.length() == 0) return s;
 	size_t beg = s.find_first_not_of(" \a\b\f\n\r\t\v");

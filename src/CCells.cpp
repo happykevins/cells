@@ -69,13 +69,13 @@ bool CCells::initialize(const CRegulation& rule)
 	// 有效性验证
 	if ( m_rule.worker_thread_num < 1 ||  m_rule.worker_thread_num > 32 )
 	{
-		CLogE("[Cells Error]: invalid worker num %d!\n", m_rule.worker_thread_num );
+		CLogE("[Cells Error]: invalid worker num %d!\n", (int)m_rule.worker_thread_num );
 		return false;
 	}
 
 	if ( CUtils::str_trim(m_rule.tempfile_suffix).empty() )
 	{
-		CLogE("[Cells Error]: invalid suffix name %s!\n", m_rule.tempfile_suffix );
+		CLogE("[Cells Error]: invalid suffix name %s!\n", m_rule.tempfile_suffix.c_str() );
 		return false;
 	}
 
@@ -269,7 +269,7 @@ CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int pri
 	if ( priority > e_priority_exclusive ) priority = e_priority_exclusive;
 
 	// 处理名字
-	std::string name = CUtils::str_trim(std::string(_name));
+	std::string name = CUtils::str_trim(_name);
 	if ( name.empty() ) return NULL;
 	CUtils::str_replace_ch(name, '\\', '/');
 	if ( name.find_first_of('/') != 0 )	name = "/" + name;
@@ -291,7 +291,7 @@ CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int pri
 		}
 		else
 		{	
-			CLogD("post failed: name=%s; name is not in cdf!\n", name);
+			CLogD("post failed: name=%s; name is not in cdf!\n", name.c_str());
 
 			// desire a non-exist common cell
 			m_cellidx.unlock();
@@ -305,7 +305,7 @@ CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int pri
 		// request type mismatch
 		if ( cell->m_celltype != type )
 		{
-			CLogE("post failed: name=%s; o_type=%d; r_type=%d; type mismatch!\n", name, cell->m_celltype, type);
+			CLogE("post failed: name=%s; o_type=%d; r_type=%d; type mismatch!\n", name.c_str(), cell->m_celltype, type);
 
 			m_cellidx.unlock();
 			return NULL;
@@ -387,7 +387,8 @@ void CCells::on_task_finish(CCell* cell)
 	//
 	
 	bool all_done_edge_trigger = false; // 用于边界触发
-	taskmap_t::_Pairii range = m_taskloading.equal_range(cell);
+	std::pair<taskmap_t::iterator, taskmap_t::iterator> range
+		= m_taskloading.equal_range(cell);
 	for ( taskmap_t::iterator it = range.first; it != range.second; it++ )
 	{
 		all_done_edge_trigger = true;
