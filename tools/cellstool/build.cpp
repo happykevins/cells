@@ -8,12 +8,11 @@ static size_t s_file_counter = 0;
 static size_t s_file_err_counter = 0;
 static size_t s_folder_counter = 0;
 static size_t s_folder_err_counter = 0;
-static string s_process_log = "cells_build_logs.log";
 static FILE* s_process_log_fp = NULL;
 static FILE* s_folders_outputfile_fp = NULL;
 static FILE* s_files_outputfile_fp = NULL;
 
-bool process_folder(string full_path, string rel_path, string name)
+static bool process_folder(string full_path, string rel_path, string name)
 {
 	string output_folder = s_outputpath + rel_path + name;
 
@@ -38,7 +37,7 @@ bool process_folder(string full_path, string rel_path, string name)
 	}
 }
 
-bool process_file(string full_path, string rel_path, string name)
+static bool process_file(string full_path, string rel_path, string name)
 {
 	string input_file = full_path + name;
 	string output_file = s_outputpath + rel_path + name;
@@ -169,7 +168,7 @@ bool process_file(string full_path, string rel_path, string name)
 	return true;
 }
 
-void visit_build(string path, string relpath = "")
+static void visit_build(string path, string relpath = "")
 {    
 	struct _finddata_t file_info;
 	long handle;
@@ -200,7 +199,7 @@ void visit_build(string path, string relpath = "")
 	} 
 }
 
-void build_cells(string input_path, string output_path, bool compress, int compress_level, string suffix)
+void build_cells(string input_path, string output_path, bool compress, int compress_level)
 {
 	// setup output path
 	if ( access(output_path.c_str(), 0) != 0 && mkdir(output_path.c_str()) != 0 )
@@ -214,19 +213,16 @@ void build_cells(string input_path, string output_path, bool compress, int compr
 		error_msg("can't create log file!");
 	}
 
-	printf("***start building:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
-		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, suffix.c_str());
+	printf("***start building:\n --- in=%s, out=%s, zlib=%s, zlevel=%d\n",
+		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level);
 
 	fprintf(s_process_log_fp, "***start building:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
-		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, suffix.c_str());
+		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level);
 
 	s_inputpath = input_path;
 	s_outputpath = output_path;
 	s_compress = compress;
 	s_compress_level = compress_level;
-	suffix;
-
-
 
 	// open output file
 	s_folders_outputfile_fp = fopen(string(s_outputpath + "/" + s_folders_outputfile).c_str(), "w+");

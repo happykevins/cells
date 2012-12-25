@@ -6,33 +6,12 @@ static bool s_compress = false;
 static int s_compress_level = -1;
 static size_t s_error_counter = 0;
 
-
-static size_t s_cdf_error_counter = 0;
-static size_t s_file_counter = 0;
-static size_t s_file_err_counter = 0;
-static size_t s_folder_counter = 0;
-static size_t s_folder_err_counter = 0;
-
-static string s_cdf_input_idxfile = "cells_cdf_index.txt";
-static string s_process_log = "cells_cdf_logs.log";
-static string s_freefiles_name = "cells_freefiles.csv";
-static string s_freefiles_cdf_name = "cells_cdf_freefiles.xml";
 static string s_temp_suffix = ".tmp";
 static FILE* s_process_log_fp = NULL;
 static FILE* s_folders_outputfile_fp = NULL;
 static FILE* s_files_outputfile_fp = NULL;
 
-struct cell_attr
-{
-	cell_attr() : osize(0), zsize(0), in_cdf(false), is_cdf(false) {}
-	string omd5;
-	string zmd5;
-	size_t osize;
-	size_t zsize;
-	bool in_cdf;
-	bool is_cdf;
-};
-typedef map<string, cell_attr*> idxmap_t;
+
 static idxmap_t s_idxmap;
 
 struct task_attr
@@ -43,68 +22,6 @@ struct task_attr
 	vector<string> attrs;
 };
 vector<task_attr*> s_tasks;
-
-bool check_bom(FILE* fp)
-{
-	assert(fp);
-	int bom_bytes[3] = {0xEF, 0xBB, 0xBF};
-
-	for ( size_t i = 0; i < 3; i++ )
-	{
-		int ch = fgetc(fp);
-		if ( ch == EOF )
-		{
-			fseek(fp, 0, SEEK_SET);
-			return false;
-		}
-		if ( bom_bytes[i] != ch )
-		{
-			fseek(fp, 0, SEEK_SET);
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool parse_line(FILE* fp, vector<string>& out)
-{
-	for( int w = 0, ch = fgetc(fp); true; ch = fgetc(fp) )
-	{
-		if ( ch == '\n' || ch == ',' || ch == EOF )
-		{
-			s_data_buf[w] = '\0';
-			out.push_back(string(s_data_buf));
-
-			if ( ch == '\n' )
-			{
-				if ( out.size() == 1 && out[0].empty() )
-				{
-					// skip empty line
-					out.clear();
-				}
-				return true;
-			}
-
-			if ( ch == EOF )
-				break;
-
-			w = 0;
-			continue;
-		}
-		
-		s_data_buf[w] = (char)ch;
-		w++;
-	}
-
-	if ( out.size() == 1 && out[0].empty() )
-	{
-		// skip empty line
-		out.clear();
-	}
-
-	return false;
-}
 
 void setup_index()
 {
@@ -158,7 +75,7 @@ void setup_tasks()
 {
 	// open index file
 	FILE* in_cdf_index_fp = fopen(string(s_inputpath + "/" + s_cdf_input_idxfile).c_str(), "r");
-	if ( !s_process_log_fp )
+	if ( !in_cdf_index_fp )
 	{
 		error_msg("can't open input cdf index file!");
 	}
@@ -478,7 +395,7 @@ void setup_freefiles()
 	setup_cdf(&task);
 }
 
-void build_cdf(string input_path, string output_path, bool compress, int compress_level, string suffix)
+void build_cdf(string input_path, string output_path, bool compress, int compress_level)
 {
 	// setup output path
 	if ( access(output_path.c_str(), 0) != 0 && mkdir(output_path.c_str()) != 0 )
@@ -492,17 +409,16 @@ void build_cdf(string input_path, string output_path, bool compress, int compres
 		error_msg("can't create log file!");
 	}
 
-	printf("***start cdf builder:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
-		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, suffix.c_str());
+	printf("***start cdf builder:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, cdfidx=%s\n",
+		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, s_cdf_input_idxfile.c_str());
 
-	fprintf(s_process_log_fp, "***start cdf builder:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
-		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, suffix.c_str());
+	fprintf(s_process_log_fp, "***start cdf builder:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, cdfidx=%s\n",
+		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level, s_cdf_input_idxfile.c_str());
 
 	s_inputpath = input_path;
 	s_outputpath = output_path;
 	s_compress = compress;
 	s_compress_level = compress_level;
-	suffix;
 
 	setup_index();
 	setup_tasks();

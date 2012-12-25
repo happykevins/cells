@@ -185,6 +185,10 @@
 				RelativePath=".\tools.h"
 				>
 			</File>
+			<File
+				RelativePath=".\version.cpp"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

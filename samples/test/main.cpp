@@ -29,10 +29,8 @@ public:
 			printf("*****************************all task done*******************************\n");
 			return;
 		}
-		//if ( error_no == 0) return;
+		if ( error_no == 0) return;
 		printf("**Observer::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
-
-		return;
 
 		if ( error_no != 0 )
 		{
@@ -76,15 +74,15 @@ int main(int argc, char *argv[])
 	rule.only_local_mode = false;
 	//rule.zip_type = e_nozip;
 	rule.zip_type = e_zlib;
-	rule.zip_cdf = false;
-	rule.worker_thread_num = 1;
+	rule.zip_cdf = true;
+	rule.worker_thread_num = 4;
 	rule.max_download_speed = 1024 * 1024 * 10; 
 	rule.enable_ghost_mode = true;
 	rule.max_ghost_download_speed = 1024 * 1024;
 	rule.local_url = "./downloads/";
-	rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
+	//rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
-	//rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
 
 	cells.initialize(rule);
 	//cells.suspend();
@@ -99,18 +97,7 @@ int main(int argc, char *argv[])
 	//	CUtils::sleep(500);
 	//}
 
-	//cells.post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
-
-	//while (!cdf_ok)
-	//{
-	//	CUtils::sleep(1000);
-	//}
-
-	//cells.post_desire_file("baby.jpg");
-	//cells.post_desire_file("music.ogg");
-
-	//CUtils::sleep(5000);
-	//cells.resume();
+	cells.post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade);
 
 	CUtils::sleep(10 * 1000);
 	cells.set_speedfactor(0.5);

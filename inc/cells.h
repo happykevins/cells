@@ -1,4 +1,4 @@
-/*
+ï»¿/*
 * cells.h
 *
 *  Created on: 2012-12-18
@@ -25,7 +25,7 @@ namespace cells
 {
 
 //
-// ÄÚ½¨ÊôĞÔÃû
+// å†…å»ºå±æ€§å
 //
 extern const char* CDF_VERSION;			//= "version"	string
 extern const char* CDF_LOADALL;			//= "loadall"	boolean:		0 | 1
@@ -37,19 +37,19 @@ extern const char* CDF_CELL_SIZE;		//= "size"		int
 extern const char* CDF_CELL_ZHASH;		//= "zhash"		string
 extern const char* CDF_CELL_ZSIZE;		//= "zsize"		int
 
-// ÊôĞÔ±í
+// å±æ€§è¡¨
 typedef std::map<std::string, std::string> props_t; 
-// ÊôĞÔ±íÁĞ±í
+// å±æ€§è¡¨åˆ—è¡¨
 typedef std::map<std::string, props_t*> props_list_t;
 
-// Ñ¹ËõÀàĞÍ
+// å‹ç¼©ç±»å‹
 enum eziptype_t
 {
 	e_nozip = 0,
 	e_zlib,
 };
 
-// stateÀàĞÍ
+// stateç±»å‹
 enum estatetype_t
 {
 	e_state_file_common = 0, 
@@ -57,25 +57,25 @@ enum estatetype_t
 	e_state_event_alldone = 3
 };
 
-// ÓÅÏÈ¼¶
+// ä¼˜å…ˆçº§
 enum epriority_t {
 	e_priority_default 		= 0,
-	e_priority_exclusive 	= (unsigned short)-1, // ×î´ó65535
+	e_priority_exclusive 	= (unsigned short)-1, // æœ€å¤§65535
 };
 
-// CDFÎÄ¼ş¼ÓÔØ·½Ê½
-//  *×¢Òâ£ºÄ¿Ç°¶Ôcascade¼ÓÔØ·½Ê½£¬ÓÉÓÚÄÚ²¿ÊµÏÖÓÃÒ»ÕÅcdfË÷Òı×´Ì¬±íÀ´ÖÕÖ¹Ç±ÔÚµÄÎŞÏŞµİ¹é£¬
-//		ËùÒÔÈç¹ûcascadeÂ·¾¶ÉÏÓöµ½ÒÑ¾­½¨Á¢¹ıË÷ÒıµÄcdf£¬»áÖÕÖ¹µİ¹é£¬Æä×ÓÂ·¾¶Ò²²»»á±»¼ÓÔØ¡£
+// CDFæ–‡ä»¶åŠ è½½æ–¹å¼
+//  *æ³¨æ„ï¼šç›®å‰å¯¹cascadeåŠ è½½æ–¹å¼ï¼Œç”±äºå†…éƒ¨å®ç°ç”¨ä¸€å¼ cdfç´¢å¼•çŠ¶æ€è¡¨æ¥ç»ˆæ­¢æ½œåœ¨çš„æ— é™é€’å½’ï¼Œ
+//		æ‰€ä»¥å¦‚æœcascadeè·¯å¾„ä¸Šé‡åˆ°å·²ç»å»ºç«‹è¿‡ç´¢å¼•çš„cdfï¼Œä¼šç»ˆæ­¢é€’å½’ï¼Œå…¶å­è·¯å¾„ä¹Ÿä¸ä¼šè¢«åŠ è½½ã€‚
 enum ecdf_loadtype_t
 {
-	e_cdf_loadtype_config = 0,		// ½¨Á¢´ËcdfË÷Òı£¬²¢°´ÅäÖÃÀ´½øĞĞ¼ÓÔØ²Ù×÷
-	e_cdf_loadtype_index,			// Ö»½¨Á¢´ËcdfµÄË÷Òı£¬²»¼ÓÔØÎÄ¼ş
-	e_cdf_loadtype_index_cascade,	// ¼¶Áª½¨Á¢×ÓcdfË÷Òı£¬²»¼ÓÔØcommonÎÄ¼ş
-	e_cdf_loadtype_load,			// ½¨Á¢Ë÷Òı²¢¼ÓÔØ´ËcdfÃèÊöµÄÎÄ¼ş
-	e_cdf_loadtype_load_cascade,	// ½¨Á¢Ë÷Òı²¢¼¶Áª¼ÓÔØËùÓĞ×ÓcdfÃèÊöµÄÎÄ¼ş
+	e_cdf_loadtype_config = 0,		// å»ºç«‹æ­¤cdfç´¢å¼•ï¼Œå¹¶æŒ‰é…ç½®æ¥è¿›è¡ŒåŠ è½½æ“ä½œ
+	e_cdf_loadtype_index,			// åªå»ºç«‹æ­¤cdfçš„ç´¢å¼•ï¼Œä¸åŠ è½½æ–‡ä»¶
+	e_cdf_loadtype_index_cascade,	// çº§è”å»ºç«‹å­cdfç´¢å¼•ï¼Œä¸åŠ è½½commonæ–‡ä»¶
+	e_cdf_loadtype_load,			// å»ºç«‹ç´¢å¼•å¹¶åŠ è½½æ­¤cdfæè¿°çš„æ–‡ä»¶
+	e_cdf_loadtype_load_cascade,	// å»ºç«‹ç´¢å¼•å¹¶çº§è”åŠ è½½æ‰€æœ‰å­cdfæè¿°çš„æ–‡ä»¶
 };
 
-// ¼ÓÔØ´íÎóÀàĞÍ
+// åŠ è½½é”™è¯¯ç±»å‹
 enum eloaderror_t
 {
 	e_loaderr_ok = 0, 
@@ -87,25 +87,25 @@ enum eloaderror_t
 };
 
 //
-// cellsÏµÍ³¹æÔò¶¨ÖÆ
+// cellsç³»ç»Ÿè§„åˆ™å®šåˆ¶
 //
 struct CRegulation
 {
-	std::vector<std::string> remote_urls;// ÏÂÔØÂ·¾¶ÁĞ±í
-	std::string local_url;				// ±¾µØ´æ´¢Â·¾¶
-	size_t worker_thread_num;			// ¹¤×÷Ïß³ÌÊı
-	size_t max_download_speed;			// ÏÂÔØËÙ¶ÈÉÏÏŞ
-	bool auto_dispatch;					// ÊÇ·ñÆô¶¯×Ô¶¯ÅÉ·¢Ïß³Ì
-	bool only_local_mode;				// ÊÇ·ñ¿ªÆô±¾µØÄ£Ê½£º±¾µØÎÄ¼ş²»Æ¥ÅäÒ²²»½øĞĞdownload²Ù×÷
-	bool enable_ghost_mode;				// ÊÇ·ñ¿ªÆôghostÄ£Ê½
-	size_t max_ghost_download_speed;	// ghostµÄÏÂÔØËÙ¶È
-	bool enable_free_download;			// ÊÇ·ñ¿ªÆô×ÔÓÉÏÂÔØÄ£Ê½£º(Ä¬ÈÏ¹Ø±Õ)£¬¿ªÆô´ËÄ£Ê½¿ÉÒÔ×ÔÓÉĞèÇócdfÃ»ÓĞÃèÊö¹ıµÄÎÄ¼ş
-	eziptype_t zip_type;				// Ñ¹ËõÀàĞÍ£º0-Î´Ñ¹Ëõ£»1-zlib
-	bool zip_cdf;						// cdfÎÄ¼şÊÇ·ñÎªÑ¹Ëõ¸ñÊ½
+	std::vector<std::string> remote_urls;// ä¸‹è½½è·¯å¾„åˆ—è¡¨
+	std::string local_url;				// æœ¬åœ°å­˜å‚¨è·¯å¾„
+	size_t worker_thread_num;			// å·¥ä½œçº¿ç¨‹æ•°
+	size_t max_download_speed;			// ä¸‹è½½é€Ÿåº¦ä¸Šé™
+	bool auto_dispatch;					// æ˜¯å¦å¯åŠ¨è‡ªåŠ¨æ´¾å‘çº¿ç¨‹
+	bool only_local_mode;				// æ˜¯å¦å¼€å¯æœ¬åœ°æ¨¡å¼ï¼šæœ¬åœ°æ–‡ä»¶ä¸åŒ¹é…ä¹Ÿä¸è¿›è¡Œdownloadæ“ä½œ
+	bool enable_ghost_mode;				// æ˜¯å¦å¼€å¯ghostæ¨¡å¼
+	size_t max_ghost_download_speed;	// ghostçš„ä¸‹è½½é€Ÿåº¦
+	bool enable_free_download;			// æ˜¯å¦å¼€å¯è‡ªç”±ä¸‹è½½æ¨¡å¼ï¼š(é»˜è®¤å…³é—­)ï¼Œå¼€å¯æ­¤æ¨¡å¼å¯ä»¥è‡ªç”±éœ€æ±‚cdfæ²¡æœ‰æè¿°è¿‡çš„æ–‡ä»¶
+	eziptype_t zip_type;				// å‹ç¼©ç±»å‹ï¼š0-æœªå‹ç¼©ï¼›1-zlib
+	bool zip_cdf;						// cdfæ–‡ä»¶æ˜¯å¦ä¸ºå‹ç¼©æ ¼å¼
 
-	std::string remote_zipfile_suffix;	// remote¶ËzipÎÄ¼şºó×º
-	std::string tempfile_suffix;		// ÁÙÊ±ÏÂÔØÎÄ¼şºó×º
-	std::string temphash_suffix;		// ÁÙÊ±hashÎÄ¼şºó×º
+	std::string remote_zipfile_suffix;	// remoteç«¯zipæ–‡ä»¶åç¼€
+	std::string tempfile_suffix;		// ä¸´æ—¶ä¸‹è½½æ–‡ä»¶åç¼€
+	std::string temphash_suffix;		// ä¸´æ—¶hashæ–‡ä»¶åç¼€
 
 	// default value
 	CRegulation() : worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLAOD_SPEED_NOLIMIT),
@@ -118,7 +118,7 @@ struct CRegulation
 };
 
 //
-// CFunctorBase-·â×°º¯Êı±Õ°ü
+// CFunctorBase-å°è£…å‡½æ•°é—­åŒ…
 //
 class CFunctorBase
 {
