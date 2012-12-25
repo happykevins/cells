@@ -61,7 +61,7 @@ CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, boo
 	curl_easy_setopt(m_handle, CURLOPT_MAX_RECV_SPEED_LARGE, mspeed);
 	curl_easy_setopt(m_handle, CURLOPT_URL, url);
 
-	// 设置断点续传
+	// 设置断点续传: 使用CURLOPT_RESUME_FROM_LARGE
 	if ( bp_resume )
 	{
 		std::stringstream ss;

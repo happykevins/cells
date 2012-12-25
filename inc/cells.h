@@ -86,12 +86,15 @@ enum eloaderror_t
 	e_loaderr_patchup_failed
 };
 
+
 //
 // cells系统规则定制
 //
 struct CRegulation
 {
-	std::vector<std::string> remote_urls;// 下载路径列表
+	CRegulation();
+
+	std::vector<std::string> remote_urls;// 下载路径列表 (Trick:由于在一个url失败会按顺序尝试下面的url，因此可以添加多个相同的url，以实现尝试次数的控制
 	std::string local_url;				// 本地存储路径
 	size_t worker_thread_num;			// 工作线程数
 	size_t max_download_speed;			// 下载速度上限
@@ -106,15 +109,6 @@ struct CRegulation
 	std::string remote_zipfile_suffix;	// remote端zip文件后缀
 	std::string tempfile_suffix;		// 临时下载文件后缀
 	std::string temphash_suffix;		// 临时hash文件后缀
-
-	// default value
-	CRegulation() : worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLAOD_SPEED_NOLIMIT),
-		auto_dispatch(true), only_local_mode(false), 
-		enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLAOD_SPEED),
-		enable_free_download(false), zip_type(e_nozip), zip_cdf(false),
-		remote_zipfile_suffix(CELLS_REMOTE_ZIPFILE_SUFFIX),
-		tempfile_suffix(CELLS_DEFAULT_TEMP_SUFFIX), temphash_suffix(CELLS_DEFAULT_HASH_SUFFIX)
-	{}
 };
 
 //
@@ -123,7 +117,6 @@ struct CRegulation
 class CFunctorBase
 {
 public:
-	virtual ~CFunctorBase(){}
 	virtual void operator() (estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context) = 0;
 };
 
@@ -177,6 +170,99 @@ CFunctorM<T>* make_functor_m(T* _t, typename CFunctorM<T>::mfunc_t _f)
 {
 	return new CFunctorM<T>(_t, _f);
 }
+
+//
+// cells系统接口
+//
+class CellsHandler
+{
+public:
+	/*
+	* 返回cells系统配置规则
+	*/
+	virtual const CRegulation& regulation() const = 0;
+
+	/*
+	* 派发结果通告
+	*	@param - dt : 间隔时间(秒)
+	* 	1.auto_dispatch设置为false，用户通过调用该方法来派发执行结果
+	* 		以确保回调函数在用户线程中执行
+	* 	2.auto_dispatch为true,cells系统线程将派
+	* 		发回调，用户需要对回调函数的线程安全性负责
+	*/
+	virtual void tick_dispatch(double dt) = 0;
+
+	/*
+	* 恢复执行
+	* 	1.与suspend对应
+	*/
+	virtual void resume() = 0;
+
+	/*
+	* 挂起cells系统：暂停cells系统的所有活动
+	* 	1.挂起状态可以提交需求，但是不会被执行
+	* 	2.在挂起前已经在执行中的任务会继续执行
+	*/
+	virtual void suspend() = 0;
+
+	/*
+	* 判断cells系统是否处于挂起状态
+	*/
+	virtual bool is_suspend() = 0;
+
+	/*
+	* 需求一个cdf文件
+	* 	1.cdf - cells description file
+	* 	2.包含了对用户文件列表的描述
+	* 	@param name - cdf文件名
+	* 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
+	*	@param cdf_load_type - 加载完cdf文件后，如何处理子文件
+	*	@param user_context - 回调时传递给observer的user_context
+	*	@return - 是否成功：name语法问题会导致失败
+	*/
+	virtual bool post_desire_cdf(const std::string& name, 
+		int priority = e_priority_exclusive, 
+		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config,
+		void* user_context = NULL) = 0;
+
+	/*
+	* 需求一个用户文件
+	* 	1.需求的文件如果没有包含在此前加载的cdf之中，会因为无法获得文件hash导致每次都需要下载
+	* 	@param name - 文件名
+	* 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
+	*	@param user_context - 回调时传递给observer的user_context
+	*	@return - 是否成功：如果没有开启free_download，如果需求之前加载的cdf表中没有包含的文件，会导致返回失败
+	*/
+	virtual bool post_desire_file(const std::string& name, 
+		int priority = e_priority_default,
+		void* user_context = NULL) = 0;
+
+	/*
+	* 注册监听器，事件完成会收到通知
+	* 	1.注意在目标target失效前要移除监听器，否则会出现内存访问失败问题
+	* 	@param target - 目标对象
+	* 	@param func - 目标对象的回调方法 - 用make_functor函数获得
+	* 		回调方法原型 - void (T::*mfunc_t)(const char* name, int type, int error_no);
+	*/
+	virtual void register_observer(void* target, CFunctorBase* func) = 0;
+
+	/*
+	* 移除监听器
+	* 	@param target - 注册的目标对象
+	*/
+	virtual void remove_observer(void* target) = 0;
+
+	/*
+	* 设置下载速度系数，用于边玩边下载控制
+	* 	@param f - 下载速度系数[0~1]: 0取消限速
+	*/
+	virtual void set_speedfactor(float f) = 0;
+};
+
+// 创建cells接口，失败返回NULL
+CellsHandler* cells_create(const CRegulation& rule);
+// 销毁cells接口
+void cells_destroy(CellsHandler* handler);
 
 }/* namespace cells */
 #endif /* CELLS_H_ */

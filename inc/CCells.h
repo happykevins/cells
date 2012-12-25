@@ -68,7 +68,7 @@ typedef CMap<std::string, class CCell*> cdfidx_t;
  * CCells
  * 	cells系统的接口类
  */
-class CCells
+class CCells : public CellsHandler
 {
 	typedef std::multimap<CCell*, CCellTask*> taskmap_t;
 public:
