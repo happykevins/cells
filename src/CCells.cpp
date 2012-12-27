@@ -220,20 +220,22 @@ void CCells::tick_dispatch(double dt)
 bool CCells::post_desire_cdf(const std::string& name, 
 							 int priority, /*= priority_exclusive*/
 							 ecdf_loadtype_t cdf_load_type, /*= e_cdf_loadtype_config*/
+							 eziptype_t zip_type, /*= e_zip_cdfconfig*/
 							 void* user_context /*= NULL*/)
 {
 	if ( name.empty() ) return false;
 
-	return post_desired(name, e_state_file_cdf, priority, user_context, cdf_load_type) != NULL;
+	return post_desired(name, e_state_file_cdf, priority, user_context, zip_type, cdf_load_type) != NULL;
 }
 
 bool CCells::post_desire_file(const std::string& name, 
 							  int priority, /*= priority_default*/
+							  eziptype_t zip_type, /*= e_zip_cdfconfig*/
 							  void* user_context /*= NULL*/)
 {
 	if ( name.empty() ) return false;
 
-	return post_desired(name, e_state_file_common, priority, user_context) != NULL;
+	return post_desired(name, e_state_file_common, priority, user_context, zip_type) != NULL;
 }
 
 void CCells::register_observer(void* target, CFunctorBase* func)
@@ -263,7 +265,7 @@ void CCells::set_speedfactor(float f)
 }
 
 
-CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int priority, void* user_context, ecdf_loadtype_t cdf_load_type)
+CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int priority, void* user_context, eziptype_t zip_type, ecdf_loadtype_t cdf_load_type)
 {
 	assert(priority <= e_priority_exclusive);
 	if ( priority > e_priority_exclusive ) priority = e_priority_exclusive;
@@ -275,19 +277,27 @@ CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int pri
 	if ( name.find_first_of('/') != 0 )	name = "/" + name;
 
 
-	CLogD( "post desired: name=%s; type=%d; prio=%d\n",
-			name.c_str(), type, priority);
+	CLogD( "post desired: name=%s; type=%d; prio=%d; zipt=%d; loadt=%d\n",
+			name.c_str(), type, priority, zip_type, cdf_load_type);
 
 	CCell* cell = NULL;
 	m_cellidx.lock();
 	cellidx_t::iterator it = m_cellidx.find(name);
 	if (it == m_cellidx.end())
 	{
-		if ( m_rule.enable_free_download || type == e_state_file_cdf )
+		if ( zip_type == e_zip_cdfconfig )
+		{
+			CLogE("post failed: name=%s; r_ziptype=%d; a free file must specify ziptype!\n", name.c_str(), zip_type);
+
+			m_cellidx.unlock();
+			return NULL;
+		}
+		else if ( m_rule.enable_free_download || type == e_state_file_cdf )
 		{
 			// desire a new cell
 			cell = new CCell(name, "", type);
 			m_cellidx.insert(name, cell);
+			cell->m_ziptype = zip_type;
 		}
 		else
 		{	
@@ -306,6 +316,13 @@ CCell* CCells::post_desired(const std::string& _name, estatetype_t type, int pri
 		if ( cell->m_celltype != type )
 		{
 			CLogE("post failed: name=%s; o_type=%d; r_type=%d; type mismatch!\n", name.c_str(), cell->m_celltype, type);
+
+			m_cellidx.unlock();
+			return NULL;
+		}
+		else if ( cell->m_ziptype != zip_type )
+		{
+			CLogE("post failed: name=%s; o_ziptype=%d; r_ziptype=%d; ziptype mismatch!\n", name.c_str(), cell->m_ziptype, zip_type);
 
 			m_cellidx.unlock();
 			return NULL;
@@ -620,7 +637,7 @@ void CCells::cdf_postload(CCellTask* task)
 				if ( !alreadyindexed )
 				{
 					// 未建立索引，级联调用
-					post_desire_cdf(subcell->m_name, task->priority(), task->cdf_loadtype, task->context());
+					post_desire_cdf(subcell->m_name, task->priority(), task->cdf_loadtype, subcell->m_ziptype, task->context());
 				}
 				else
 				{
@@ -629,7 +646,7 @@ void CCells::cdf_postload(CCellTask* task)
 			}
 			else if ( postload )
 			{
-				post_desire_cdf(subcell->m_name, task->priority(), e_cdf_loadtype_index, task->context());
+				post_desire_cdf(subcell->m_name, task->priority(), e_cdf_loadtype_index, subcell->m_ziptype, task->context());
 			}
 		}
 		else 
@@ -639,7 +656,7 @@ void CCells::cdf_postload(CCellTask* task)
 			//
 
 			if ( postload )
-				post_desire_file(subcell->m_name, task->priority(), task->context());
+				post_desire_file(subcell->m_name, task->priority(), subcell->m_ziptype, task->context());
 		}
 	}
 

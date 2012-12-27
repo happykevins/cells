@@ -151,12 +151,18 @@ void CCreationWorker::do_work()
 	// setup download environment
 	std::string downloadurl = localtmpurl;
 	bool need_decompress = false;
+	if ( cell->m_ziptype != e_zip_none )
+	{
+		need_decompress = true;
+	}
+	/** use cdf 'zip' mark
 	// check need tmp file
 	if ( m_host->m_host->regulation().zip_type != 0 && 
 		( cell->m_celltype == e_state_file_common || m_host->m_host->regulation().zip_cdf ) )
 	{
 		need_decompress = true;
 	}
+	*/
 
 	// download
 	eloaderror_t download_errno = work_download_remote(
@@ -447,6 +453,12 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 				const char* cell_hash = cell_section->Attribute(CDF_CELL_HASH);
 				const char* cell_zhash = cell_section->Attribute(CDF_CELL_ZHASH);
+				int cell_ziptype_tmp = CUtils::atoi(cell_section->Attribute(CDF_CELL_ZIP));
+				eziptype_t cell_ziptype = e_zip_none;
+				if ( cell_ziptype_tmp != 0 )
+				{
+					cell_ziptype = e_zip_zlib;
+				}
 
 				estatetype_t cell_type = e_state_file_common;
 				bool is_cdf = CUtils::atoi(cell_section->Attribute(CDF_CELL_CDF)) == 1;
@@ -460,6 +472,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 
 				CCell* cell = new CCell(cell_name_tmp, cell_hash, cell_type);
 				if (cell_zhash) cell->m_zhash = cell_zhash;
+				cell->m_ziptype = cell_ziptype;
 
 				for (const TiXmlAttribute* cell_attr =
 					cell_section->FirstAttribute(); cell_attr; cell_attr =

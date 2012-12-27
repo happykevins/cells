@@ -175,11 +175,7 @@ void CCreationFactory::set_speedfactor(float f)
 size_t CCreationFactory::suggest_maxspeed()
 {
 	// 由于工作线程还负责解压缩和存储到磁盘，不能全速下载，做一个补偿
-	float local_factor = 1.5f;
-	if ( m_host->regulation().zip_type != e_nozip )
-	{
-		local_factor = 2.0f;
-	}
+	float local_factor = 1.8f;
 
 	size_t free_size = m_worknum - count_workingworks();
 	free_size = free_size < 1 ? 1 : free_size;

@@ -21,6 +21,7 @@ const char* CDF_CELL_HASH = "hash";
 const char* CDF_CELL_SIZE = "size";
 const char* CDF_CELL_ZHASH = "zhash";
 const char* CDF_CELL_ZSIZE = "zsize";
+const char* CDF_CELL_ZIP = "zip";
 
 
 // default value
@@ -28,7 +29,8 @@ CRegulation::CRegulation() :
 	worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLAOD_SPEED_NOLIMIT),
 	auto_dispatch(true), only_local_mode(false), 
 	enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLAOD_SPEED),
-	enable_free_download(false), zip_type(e_nozip), zip_cdf(false),
+	enable_free_download(false), 
+	//zip_type(e_zip_none), zip_cdf(false),
 	remote_zipfile_suffix(CELLS_REMOTE_ZIPFILE_SUFFIX),
 	tempfile_suffix(CELLS_DEFAULT_TEMP_SUFFIX), temphash_suffix(CELLS_DEFAULT_HASH_SUFFIX)
 {

@@ -73,103 +73,55 @@ class CCells : public CellsHandler
 {
 	typedef std::multimap<CCell*, CCellTask*> taskmap_t;
 public:
-	CCells();
+	// @see CellsHandler
+	virtual const CRegulation& regulation() const;
 
-	/*
-	 * 初始化cells系统
-	 * @param rule - 描述cells系统规则
-	 * @return - 是否成功初始化
-	 */
-	bool initialize(const CRegulation& rule);
+	// @see CellsHandler
+	virtual void tick_dispatch(double dt);
 
-	/*
-	 * 销毁cells系统
-	 */
-	void destroy();
+	// @see CellsHandler
+	virtual void resume();
 
-	/*
-	 * 返回cells系统配置规则
-	 */
-	const CRegulation& regulation() const;
+	// @see CellsHandler
+	virtual void suspend();
 
-	/*
-	 * 派发结果通告
-	 *	@param - dt : 间隔时间(秒)
-	 * 	1.auto_dispatch设置为false，用户通过调用该方法来派发执行结果
-	 * 		以确保回调函数在用户线程中执行
-	 * 	2.auto_dispatch为true,cells系统线程将派
-	 * 		发回调，用户需要对回调函数的线程安全性负责
-	 */
-	void tick_dispatch(double dt);
+	// @see CellsHandler
+	virtual bool is_suspend();
 
-	/*
-	 * 恢复执行
-	 * 	1.与suspend对应
-	 */
-	void resume();
-
-	/*
-	 * 挂起cells系统：暂停cells系统的所有活动
-	 * 	1.挂起状态可以提交需求，但是不会被执行
-	 * 	2.在挂起前已经在执行中的任务会继续执行
-	 */
-	void suspend();
-
-	/*
-	 * 判断cells系统是否处于挂起状态
-	 */
-	bool is_suspend();
-
-	/*
-	 * 需求一个cdf文件
-	 * 	1.cdf - cells description file
-	 * 	2.包含了对用户文件列表的描述
-	 * 	@param name - cdf文件名
-	 * 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
-	 *	@param cdf_load_type - 加载完cdf文件后，如何处理子文件
-	 *	@param user_context - 回调时传递给observer的user_context
-	 *	@return - 是否成功：name语法问题会导致失败
-	 */
-	bool post_desire_cdf(const std::string& name, 
+	// @see CellsHandler
+	virtual bool post_desire_cdf(const std::string& name, 
 		int priority = e_priority_exclusive, 
 		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config,
+		eziptype_t zip_type = e_zip_cdfconfig,
 		void* user_context = NULL);
 
-	/*
-	 * 需求一个用户文件
-	 * 	1.需求的文件如果没有包含在此前加载的cdf之中，会因为无法获得文件hash导致每次都需要下载
-	 * 	@param name - 文件名
-	 * 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
-	 *	@param user_context - 回调时传递给observer的user_context
-	 *	@return - 是否成功：如果没有开启free_download，如果需求之前加载的cdf表中没有包含的文件，会导致返回失败
-	 */
-	bool post_desire_file(const std::string& name, 
+	// @see CellsHandler
+	virtual bool post_desire_file(const std::string& name, 
 		int priority = e_priority_default,
+		eziptype_t zip_type = e_zip_cdfconfig,
 		void* user_context = NULL);
 
-	/*
-	 * 注册监听器，事件完成会收到通知
-	 * 	1.注意在目标target失效前要移除监听器，否则会出现内存访问失败问题
-	 * 	@param target - 目标对象
-	 * 	@param func - 目标对象的回调方法 - 用make_functor函数获得
-	 * 		回调方法原型 - void (T::*mfunc_t)(const char* name, int type, int error_no);
-	 */
-	void register_observer(void* target, CFunctorBase* func);
+	// @see CellsHandler
+	virtual void register_observer(void* target, CFunctorBase* func);
 
-	/*
-	 * 移除监听器
-	 * 	@param target - 注册的目标对象
-	 */
-	void remove_observer(void* target);
+	// @see CellsHandler
+	virtual void remove_observer(void* target);
 
-	/*
-	 * 设置下载速度系数，用于边玩边下载控制
-	 * 	@param f - 下载速度系数[0~1]: 0取消限速
-	 */
-	void set_speedfactor(float f);
+	// @see CellsHandler
+	virtual void set_speedfactor(float f);
+
+	// constructor
+	CCells();
+	bool initialize(const CRegulation& rule);
+	void destroy();
 
 protected:
-	CCell* post_desired(const std::string& _name, estatetype_t type, int priority, void* user_context = NULL, ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
+	CCell* post_desired(
+		const std::string& _name, estatetype_t type, 
+		int priority, 
+		void* user_context = NULL, 
+		eziptype_t zip_type = e_zip_cdfconfig,
+		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
 	
 private:
 	//

@@ -5,13 +5,11 @@
  *      Author: happykevins@gmail.com
  */
 
-//#include "CUtils.h"
-//#include "CCells.h"
+#include "CUtils.h"
 #include "cells.h"
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
-#include <Windows.h>
 
 using namespace std;
 using namespace cells;
@@ -72,17 +70,14 @@ int main(int argc, char *argv[])
 	CRegulation rule;
 	rule.auto_dispatch = true;
 	rule.only_local_mode = false;
-	//rule.zip_type = e_nozip;
-	rule.zip_type = e_zlib;
-	rule.zip_cdf = false;
 	rule.worker_thread_num = 4;
 	rule.max_download_speed = 1024 * 1024 * 10; 
 	rule.enable_ghost_mode = true;
 	rule.max_ghost_download_speed = 1024 * 1024;
 	rule.local_url = "./downloads/";
-	rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
+	//rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
-	//rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
 
 	CellsHandler* cells = cells_create(rule);
 	if ( !cells )
@@ -94,19 +89,19 @@ int main(int argc, char *argv[])
 	//cells.register_observer(&on_finish, make_functor_g(on_finish));
 	cells->register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
-	cells->post_desire_cdf("index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade);
+	cells->post_desire_cdf("index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_zlib);
 
 	//while( !all_done )
 	//{
 	//	CUtils::sleep(500);
 	//}
 
-	cells->post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade);
+	cells->post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade, e_zip_zlib);
 
 
 	while(true)
 	{
-		Sleep(500);
+		CUtils::sleep(500);
 		if (!rule.auto_dispatch)
 			cells->tick_dispatch(0.05f);
 	}

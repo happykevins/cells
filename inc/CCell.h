@@ -50,6 +50,7 @@ public:
 
 	size_t m_download_times;
 	eloaderror_t m_errorno;
+	eziptype_t	m_ziptype;
 
 	CCDF* m_cdf;
 };

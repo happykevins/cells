@@ -65,11 +65,7 @@ int CUtils::compress(const char* file_in, const char* file_out, int level /*= -1
 
 int CUtils::compress_fd(FILE* fin, FILE* fout, int level)
 {
-	int ret = def(fin, fout, level);
-
-	fclose(fout);
-	fclose(fin);
-	return ret;
+	return def(fin, fout, level);
 }
 
 int CUtils::decompress(const char* file_in, const char* file_out)
@@ -93,6 +89,11 @@ int CUtils::decompress(const char* file_in, const char* file_out)
 	fclose(fout);
 	fclose(fin);
 	return ret;
+}
+
+int CUtils::decompress_fd(FILE* fin, FILE* fout)
+{
+	return inf(fin, fout);
 }
 
 std::string CUtils::filehash_md5str(FILE* fp, char* buf, size_t buf_size)

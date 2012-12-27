@@ -36,6 +36,7 @@ extern const char* CDF_CELL_HASH;		//= "hash"		string
 extern const char* CDF_CELL_SIZE;		//= "size"		int
 extern const char* CDF_CELL_ZHASH;		//= "zhash"		string
 extern const char* CDF_CELL_ZSIZE;		//= "zsize"		int
+extern const char* CDF_CELL_ZIP;		//=	"zip"		int				0 - nozip | 1 - zlib
 
 // 属性表
 typedef std::map<std::string, std::string> props_t; 
@@ -45,16 +46,17 @@ typedef std::map<std::string, props_t*> props_list_t;
 // 压缩类型
 enum eziptype_t
 {
-	e_nozip = 0,
-	e_zlib,
+	e_zip_cdfconfig = -1,	// 由CDF中的描述决定
+	e_zip_none = 0,			// 未压缩
+	e_zip_zlib,				// 使用zlib压缩
 };
 
 // state类型
 enum estatetype_t
 {
-	e_state_file_common = 0, 
-	e_state_file_cdf = 1,
-	e_state_event_alldone = 3
+	e_state_file_common = 0,	// 普通文件
+	e_state_file_cdf = 1,		// CDF文件
+	e_state_event_alldone = 3	// callback事件：代表请求的任务全部完成
 };
 
 // 优先级
@@ -96,15 +98,15 @@ struct CRegulation
 
 	std::vector<std::string> remote_urls;// 下载路径列表 (Trick:由于在一个url失败会按顺序尝试下面的url，因此可以添加多个相同的url，以实现尝试次数的控制
 	std::string local_url;				// 本地存储路径
+
 	size_t worker_thread_num;			// 工作线程数
 	size_t max_download_speed;			// 下载速度上限
 	bool auto_dispatch;					// 是否启动自动派发线程
 	bool only_local_mode;				// 是否开启本地模式：本地文件不匹配也不进行download操作
-	bool enable_ghost_mode;				// 是否开启ghost模式
+
+	bool enable_ghost_mode;				// 是否开启ghost模式：(默认关闭)
 	size_t max_ghost_download_speed;	// ghost的下载速度
 	bool enable_free_download;			// 是否开启自由下载模式：(默认关闭)，开启此模式可以自由需求cdf没有描述过的文件
-	eziptype_t zip_type;				// 压缩类型：0-未压缩；1-zlib
-	bool zip_cdf;						// cdf文件是否为压缩格式
 
 	std::string remote_zipfile_suffix;	// remote端zip文件后缀
 	std::string tempfile_suffix;		// 临时下载文件后缀
@@ -217,12 +219,14 @@ public:
 	* 	@param name - cdf文件名
 	* 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
 	*	@param cdf_load_type - 加载完cdf文件后，如何处理子文件
+	*	@param zip_type - 请求文件的压缩类型，默认由CDF配置决定
 	*	@param user_context - 回调时传递给observer的user_context
 	*	@return - 是否成功：name语法问题会导致失败
 	*/
 	virtual bool post_desire_cdf(const std::string& name, 
 		int priority = e_priority_exclusive, 
 		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config,
+		eziptype_t zip_type = e_zip_cdfconfig,
 		void* user_context = NULL) = 0;
 
 	/*
@@ -230,11 +234,13 @@ public:
 	* 	1.需求的文件如果没有包含在此前加载的cdf之中，会因为无法获得文件hash导致每次都需要下载
 	* 	@param name - 文件名
 	* 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
+	*	@param zip_type - 请求文件的压缩类型，默认由CDF配置决定
 	*	@param user_context - 回调时传递给observer的user_context
 	*	@return - 是否成功：如果没有开启free_download，如果需求之前加载的cdf表中没有包含的文件，会导致返回失败
 	*/
 	virtual bool post_desire_file(const std::string& name, 
 		int priority = e_priority_default,
+		eziptype_t zip_type = e_zip_cdfconfig,
 		void* user_context = NULL) = 0;
 
 	/*

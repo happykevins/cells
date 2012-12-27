@@ -309,6 +309,9 @@ void setup_cdf(task_attr* task)
 		if ( !it->second->zmd5.empty() )
 		{
 			// write md5
+			fprintf(output_fp, "zip=\"1\" ");
+
+			// write md5
 			fprintf(output_fp, "zhash=\"%s\" ", it->second->zmd5.c_str());
 			// write size
 			fprintf(output_fp, "zsize=\"%d\" ", it->second->zsize);

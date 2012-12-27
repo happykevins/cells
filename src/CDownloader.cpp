@@ -74,15 +74,18 @@ CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, boo
 		curl_easy_setopt(m_handle, CURLOPT_RANGE, "0-"); 
 	}
 
-	int retcode = 0;
 	int retv = curl_easy_perform(m_handle);
 
 	m_stream = NULL;
 	
-	retv = curl_easy_getinfo(m_handle, CURLINFO_RESPONSE_CODE , &retcode);
+	// if ok, get response code
+	int retcode = 0;
+	if ( retv == 0 )
+		retv = curl_easy_getinfo(m_handle, CURLINFO_RESPONSE_CODE , &retcode);
+	
 	CLogD("download finish curl returned curlret=%d response=%d\n", retv, retcode);
 	
-	if ( retv == 0 && (retcode == 200 || retcode == 206) )
+	if ( retv == 0 && retcode < 300 )
 		return e_downloaderr_ok;
 
 	edownloaderr_t result = e_downloaderr_ok;
