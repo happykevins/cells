@@ -74,16 +74,20 @@ CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, boo
 		curl_easy_setopt(m_handle, CURLOPT_RANGE, "0-"); 
 	}
 
+	int retcode = 0;
 	int retv = curl_easy_perform(m_handle);
+
 	m_stream = NULL;
-	CLogD("download finish curl returned value=%d\n", retv);
 	
+	retv = curl_easy_getinfo(m_handle, CURLINFO_RESPONSE_CODE , &retcode);
+	CLogD("download finish curl returned curlret=%d response=%d\n", retv, retcode);
+	
+	if ( retv == 0 && (retcode == 200 || retcode == 206) )
+		return e_downloaderr_ok;
+
 	edownloaderr_t result = e_downloaderr_ok;
 	switch(retv)
 	{
-	case CURLE_OK:
-		result = e_downloaderr_ok;
-		break;
 	case CURLE_COULDNT_RESOLVE_PROXY:
 	case CURLE_URL_MALFORMAT:
 	case CURLE_COULDNT_RESOLVE_HOST:
@@ -113,6 +117,19 @@ CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, boo
 	case CURLE_OPERATION_TIMEOUTED:
 		CLogE("curl returned timeout error: %d\n", retv);
 		result = e_downloaderr_timeout;
+		break;
+	case CURLE_OK:
+		if ( retcode == 404 )
+		{
+			CLogE("curl download: file not exist error: %d\n", retcode);
+			result = e_downloaderr_notfound;
+		}
+		else
+		{
+			
+			CLogE("curl download: server response error code: %d\n", retcode);
+			result = e_downloaderr_other_nobp;
+		}
 		break;
 	default:
 		CLogE("curl returned fatal error: %d\n", retv);
