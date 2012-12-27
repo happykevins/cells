@@ -13,6 +13,9 @@
 Debug
 Release
 
+# cmake build dir
+build
+
 # test
 downloads
 

@@ -1,0 +1,14 @@
+#
+# cells system
+# author:happykevins@gmail.com
+#
+
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6 FATAL_ERROR)
+
+PROJECT(cells)
+
+ADD_DEFINITIONS(-D_DUMP_LOG)
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
+ADD_SUBDIRECTORY(src bin)
+
+

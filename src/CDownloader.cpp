@@ -76,7 +76,8 @@ CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, boo
 
 	int retv = curl_easy_perform(m_handle);
 	m_stream = NULL;
-
+	CLogD("download finish curl returned value=%d\n", retv);
+	
 	edownloaderr_t result = e_downloaderr_ok;
 	switch(retv)
 	{
