@@ -18,6 +18,7 @@
 // TODO: 对加载线程的负载控制，可以启动多线程，但不一定都使用，根据负载来调节，减少libcurl阻塞带来的性能瓶颈，可使用进度回调，判断待下载字节数来控制
 // TODO: 对打包压缩文件的解压缩
 // TODO: 可以只verify，在下载前知道要下载的文件及大小
+// TODO: cascade类load请求扩展，不受现在的条件限制
 //
 namespace cells
 {
@@ -42,6 +43,7 @@ private:
 
 public:
 	ecdf_loadtype_t cdf_loadtype;
+	std::set<std::string> cdf_cascade_set;	// 检查cdf引用死循环问题
 
 	inline CCell* cell() { return m_cell; }
 	inline int priority() { return m_priority; }
@@ -121,7 +123,8 @@ protected:
 		int priority, 
 		void* user_context = NULL, 
 		eziptype_t zip_type = e_zip_cdfconfig,
-		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config);
+		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config,
+		const std::set<std::string>* cascade_set = NULL);
 	
 private:
 	//

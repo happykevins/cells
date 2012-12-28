@@ -66,8 +66,6 @@ enum epriority_t {
 };
 
 // CDF文件加载方式
-//  *注意：目前对cascade加载方式，由于内部实现用一张cdf索引状态表来终止潜在的无限递归，
-//		所以如果cascade路径上遇到已经建立过索引的cdf，会终止递归，其子路径也不会被加载。
 enum ecdf_loadtype_t
 {
 	e_cdf_loadtype_config = 0,		// 建立此cdf索引，并按配置来进行加载操作
