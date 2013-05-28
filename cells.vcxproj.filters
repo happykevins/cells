@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{ffc86f5f-e122-4b49-b7d2-d4eeb9a95755}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tinyxml2">
+      <UniqueIdentifier>{2f8899e7-d602-400c-abda-a6974d9be594}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="thirdparty\tinyxml2\tinyxml2.h">
+      <Filter>tinyxml2</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CCell.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CCells.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CContainer.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CCreationFactory.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CCreationWorker.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CDownloader.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\cells.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CPlatform.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CUtils.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\md5.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zpip.h">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\CCell.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CCells.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CCreationFactory.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CCreationWorker.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CDownloader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cells.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CUtils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\md5.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zpip.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\tinyxml2\tinyxml2.cpp">
+      <Filter>tinyxml2</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+  </ItemGroup>
+</Project>

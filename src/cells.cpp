@@ -26,7 +26,7 @@ const char* CDF_CELL_ZIP = "zip";
 
 // default value
 CRegulation::CRegulation() : 
-	worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLAOD_SPEED_NOLIMIT),
+	worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLOAD_SPEED_NOLIMIT),
 	auto_dispatch(true), only_local_mode(false), 
 	enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLAOD_SPEED),
 	enable_free_download(false), 

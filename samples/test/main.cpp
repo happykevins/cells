@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
-	rule.remote_urls.push_back("ftp://guest:guest@localhost/cells_test/output/");
+	rule.remote_urls.push_back("ftp://ftpuser:abcd.1234@10.248.232.13/Exchange/1-Private/kevin/cells_test/res");
 
 	CellsHandler* cells = cells_create(rule);
 	if ( !cells )
@@ -89,14 +89,14 @@ int main(int argc, char *argv[])
 	//cells.register_observer(&on_finish, make_functor_g(on_finish));
 	cells->register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
-	cells->post_desire_cdf("index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_zlib);
+	cells->post_desire_cdf("cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
 
 	//while( !all_done )
 	//{
 	//	CUtils::sleep(500);
 	//}
 
-	cells->post_desire_cdf("cells_cdf_freefiles.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade, e_zip_zlib);
+	cells->post_desire_cdf("cdf/free.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
 
 
 	while(true)

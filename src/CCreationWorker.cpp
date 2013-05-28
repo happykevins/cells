@@ -11,7 +11,7 @@
 #include <sstream>
 #include <set>
 #include <assert.h>
-#include <tinyxml.h>
+#include <tinyxml2.h>
 
 #include "CUtils.h"
 #include "CCells.h"
@@ -412,16 +412,18 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 	bool cdf_result = false;
 
 	// setup cdf
-	TiXmlDocument doc;
-	if ( cell->m_celltype == e_state_file_cdf && doc.LoadFile(localurl) )
+	using namespace tinyxml2;
+	//TiXmlDocument doc;
+	tinyxml2::XMLDocument doc;
+	if ( cell->m_celltype == e_state_file_cdf && XML_SUCCESS == doc.LoadFile(localurl) )
 	{
 		std::set<const char*> name_set;
 		CCDF* ret_cdf = new CCDF(cell);
-		for (TiXmlElement* cells_section = doc.FirstChildElement();
+		for (XMLElement* cells_section = doc.FirstChildElement();
 			cells_section; cells_section =
 			cells_section->NextSiblingElement())
 		{
-			for (const TiXmlAttribute* cells_attr =
+			for (const XMLAttribute* cells_attr =
 				cells_section->FirstAttribute(); cells_attr; cells_attr =
 				cells_attr->Next())
 			{
@@ -431,7 +433,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 					cells_attr->Value()));
 			}
 
-			for (const TiXmlElement* cell_section =
+			for (const XMLElement* cell_section =
 				cells_section->FirstChildElement(); cell_section;
 				cell_section = cell_section->NextSiblingElement())
 			{
@@ -474,7 +476,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				if (cell_zhash) cell->m_zhash = cell_zhash;
 				cell->m_ziptype = cell_ziptype;
 
-				for (const TiXmlAttribute* cell_attr =
+				for (const XMLAttribute* cell_attr =
 					cell_section->FirstAttribute(); cell_attr; cell_attr =
 					cell_attr->Next())
 				{
@@ -491,7 +493,6 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 		cdf_result = true;
 		cell->m_cdf = ret_cdf;
 	}
-	doc.Clear();
 
 	// cdf file
 	if ( !cdf_result && cell->m_celltype == e_state_file_cdf )

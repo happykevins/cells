@@ -249,7 +249,7 @@ void build_version_patch(string old_path, string new_path, string output_path)
 		error_msg("can't create output path!");
 	}
 	// open log file
-	s_process_log_fp = fopen(string(output_path + "/" + s_process_log).c_str(), "w+");
+	s_process_log_fp = fopen(string(s_log_path + "/" + s_process_log).c_str(), "w+");
 	if ( !s_process_log_fp )
 	{
 		error_msg("can't create log file!");

@@ -11,27 +11,28 @@
 // ===== global settings =====
 
 string s_process_log;
+string s_log_path = ".";
 
 // build tool settings
-string s_build_process_log = "cells_build_logs.log";
-string s_folders_outputfile = "cells_build_allfolders.csv";
-string s_files_outputfile = "cells_build_allfiles.csv";
+string s_build_process_log = "_cells_build_logs.log";
+string s_folders_outputfile = "_cells_build_allfolders.csv";
+string s_files_outputfile = "_cells_build_allfiles.csv";
 char s_data_buf[BUFFER_SIZE];
 string s_hash_suffix = ".hash";
 string s_cdf_suffix = ".xml";
 
 // cdf tool settings
-string s_cdf_process_log = "cells_cdf_logs.log";
-string s_freefiles_name = "cells_cdf_freefiles.csv";
-string s_freefiles_cdf_name = "cells_cdf_freefiles.xml";
-string s_cdf_input_idxfile = "cells_cdf_index.txt";
+string s_cdf_process_log = "_cells_cdf_logs.log";
+string s_freefiles_name = "_cells_cdf_freefiles.csv";
+string s_freefiles_cdf_name = "_cells_cdf_freefiles.xml";
+string s_cdf_input_idxfile = "cdf_index.txt";
 
 // version tool settings
-string s_version_process_log = "cells_version_logs.log";
-string s_modified_files = "cells_ver_modified_files.csv";
-string s_added_files = "cells_ver_added_files.csv";
-string s_deleted_files = "cells_ver_deleted_files.csv";
-string s_unchanged_files = "cells_ver_unchanged_files.csv";
+string s_version_process_log = "_cells_version_logs.log";
+string s_modified_files = "_cells_ver_modified_files.csv";
+string s_added_files = "_cells_ver_added_files.csv";
+string s_deleted_files = "_cells_ver_deleted_files.csv";
+string s_unchanged_files = "_cells_ver_unchanged_files.csv";
 
 // ============================
 
@@ -111,6 +112,7 @@ void print_help()
 	
 	printf("\t--- global settings --- \n");
 	printf("\t\t-log=... : log file name; default cells_*.log.\n");
+	printf("\t\t-logpath=... : log file path; default is working path.\n");
 	printf("\t\t-hashsuffix=... : hash file suffix name; default '%s'. \n", s_hash_suffix.c_str());
 	printf("\t\t-cdfsuffix=... : cdf file suffix name; default '%s'. \n", s_cdf_suffix.c_str());
 	printf("\n");
@@ -125,9 +127,10 @@ void print_help()
 	printf("\n");
 
 	printf("\t-c --cdf : create cdf files for cells system.\n");
-	printf("\t\t-i=... : input path; no default value.\n");
-	printf("\t\t-o=... : output path: no default value. \n");
+	printf("\t\t-i=... : input config files path; no default value.\n");
+	printf("\t\t-o=... : object path: no default value. \n");
 	printf("\t\t-cdfidx=... : index file name for cdf building tool; default '%s'. \n", s_cdf_input_idxfile.c_str());
+	printf("\t\t-freecdf=... : free files cdf name; default '%s'. \n", s_freefiles_name.c_str());
 	printf("\t\t-z[=level] : compress cdf use zlib. can specify level for compress level, default is -1. \n");
 	printf("\n");
 
@@ -162,6 +165,10 @@ int main(int argc, char *argv[])
 	if ( !g_cmd_args["-log"].empty() )
 	{
 		s_process_log = g_cmd_args["-log"];
+	}
+	if ( !g_cmd_args["-logpath"].empty() )
+	{
+		s_log_path = g_cmd_args["-logpath"];
 	}
 	if ( !g_cmd_args["-hashsuffix"].empty() )
 	{
@@ -205,7 +212,7 @@ int main(int argc, char *argv[])
 
 		build_cells(input_path, output_path, compress, compress_level);
 	}
-	// build
+	// cdf
 	else if ( strcmp(argv[1], "--cdf") == 0 || strcmp(argv[1], "-c") == 0 )
 	{
 		string input_path = g_cmd_args["-i"];
@@ -227,6 +234,11 @@ int main(int argc, char *argv[])
 		if ( !g_cmd_args["-cdfidx"].empty() )
 		{
 			s_cdf_input_idxfile = g_cmd_args["-cdfidx"];
+		}
+
+		if ( !g_cmd_args["-freecdf"].empty() )
+		{
+			s_freefiles_cdf_name = g_cmd_args["-freecdf"];
 		}
 
 		if ( s_process_log.empty() )

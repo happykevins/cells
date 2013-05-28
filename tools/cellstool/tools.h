@@ -61,6 +61,7 @@ extern "C" string s_added_files;
 extern "C" string s_deleted_files;
 extern "C" string s_unchanged_files;
 
+extern "C" string s_log_path;
 extern "C" string s_process_log;
 extern "C" string s_build_process_log;
 extern "C" string s_cdf_process_log;

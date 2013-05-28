@@ -26,12 +26,12 @@ vector<task_attr*> s_tasks;
 void setup_index()
 {
 	// open index file
-	s_folders_outputfile_fp = fopen(string(s_inputpath + "/" + s_folders_outputfile).c_str(), "r");
+	s_folders_outputfile_fp = fopen(string(s_outputpath + "/" + s_folders_outputfile).c_str(), "r");
 	if ( !s_folders_outputfile_fp )
 	{
 		error_msg("can't open folders list file!");
 	}
-	s_files_outputfile_fp = fopen(string(s_inputpath + "/" + s_files_outputfile).c_str(), "r");
+	s_files_outputfile_fp = fopen(string(s_outputpath + "/" + s_files_outputfile).c_str(), "r");
 	if ( !s_files_outputfile_fp )
 	{
 		error_msg("can't open files list file!");
@@ -135,6 +135,10 @@ bool process_cdf(string input_file, string output_file, string rel_file)
 			return false;
 		}
 
+		if ( !CUtils::access(output_file.c_str(), 0) )
+		{
+			CUtils::builddir(output_file.c_str());
+		}
 		output_fp = fopen(output_file.c_str(), "wb+");
 		if ( output_fp == NULL )
 		{
@@ -406,7 +410,7 @@ void build_cdf(string input_path, string output_path, bool compress, int compres
 		error_msg("can't create output path!");
 	}
 	// open log file
-	s_process_log_fp = fopen(string(output_path + "/" + s_process_log).c_str(), "w+");
+	s_process_log_fp = fopen(string(s_log_path + "/" + s_process_log).c_str(), "w+");
 	if ( !s_process_log_fp )
 	{
 		error_msg("can't create log file!");

@@ -1,17 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cells", "cells.vcproj", "{2E770A47-C14B-42A1-BEBE-8235C3910D60}"
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cells", "cells.vcxproj", "{2E770A47-C14B-42A1-BEBE-8235C3910D60}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "samples\test\test.vcproj", "{6C5995BC-8359-487A-BF8F-C7607EDB4CA4}"
-	ProjectSection(ProjectDependencies) = postProject
-		{2E770A47-C14B-42A1-BEBE-8235C3910D60} = {2E770A47-C14B-42A1-BEBE-8235C3910D60}
-	EndProjectSection
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "samples\test\test.vcxproj", "{6C5995BC-8359-487A-BF8F-C7607EDB4CA4}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cellstool", "tools\cellstool\cellstool.vcproj", "{CFBA064C-7974-400F-BEB5-58A8C435BF1F}"
-	ProjectSection(ProjectDependencies) = postProject
-		{2E770A47-C14B-42A1-BEBE-8235C3910D60} = {2E770A47-C14B-42A1-BEBE-8235C3910D60}
-	EndProjectSection
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cellstool", "tools\cellstool\cellstool.vcxproj", "{CFBA064C-7974-400F-BEB5-58A8C435BF1F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

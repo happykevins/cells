@@ -14,7 +14,7 @@ static FILE* s_files_outputfile_fp = NULL;
 
 static bool process_folder(string full_path, string rel_path, string name)
 {
-	string output_folder = s_outputpath + rel_path + name;
+	string output_folder = s_outputpath + "/" + rel_path + name;
 
 	if ( access(output_folder.c_str(), 0) != 0 && mkdir(output_folder.c_str()) != 0 )
 	{
@@ -40,7 +40,7 @@ static bool process_folder(string full_path, string rel_path, string name)
 static bool process_file(string full_path, string rel_path, string name)
 {
 	string input_file = full_path + name;
-	string output_file = s_outputpath + rel_path + name;
+	string output_file = s_outputpath + "/" + rel_path + name;
 	string hash_file = output_file + s_hash_suffix;
 	string rel_file = rel_path + name;
 	int ret = 0;
@@ -173,6 +173,11 @@ static void visit_build(string path, string relpath = "")
 	struct _finddata_t file_info;
 	long handle;
 
+	if ( !relpath.empty() )
+	{
+		relpath = relpath + "/";
+	}
+
 	if( (handle=_findfirst(string(path + "/*").c_str(),&file_info)) == -1L ) 
 	{
 		printf("-- no file --\n");
@@ -183,15 +188,15 @@ static void visit_build(string path, string relpath = "")
 		{
 			if( (file_info.attrib & _A_SUBDIR) == _A_SUBDIR  && strcmp(file_info.name, "..") )
 			{   
-				printf("folder:%s", string(relpath + "/"+ file_info.name).c_str());
-				process_folder(path + "/", relpath + "/", file_info.name) ? 
+				printf("folder:%s", string(relpath + file_info.name).c_str());
+				process_folder(path + "/", relpath, file_info.name) ? 
 					printf("[OK]\n") : printf("[FAILED]\n");
-				visit_build(path + "/" + file_info.name, relpath + "/" + file_info.name);            
+				visit_build(path + "/" + file_info.name, relpath + file_info.name);            
 			}
 			else if(!(file_info.attrib & _A_SUBDIR))
 			{ 
-				printf("file:%s", string(relpath + "/"+ file_info.name).c_str());
-				process_file(path + "/", relpath + "/", file_info.name) ? 
+				printf("file:%s", string(relpath + file_info.name).c_str());
+				process_file(path + "/", relpath, file_info.name) ? 
 					printf("[OK]\n") : printf("[FAILED]\n");
 			} 
 		}     
@@ -207,7 +212,7 @@ void build_cells(string input_path, string output_path, bool compress, int compr
 		error_msg("can't create output path!");
 	}
 	// open log file
-	s_process_log_fp = fopen(string(output_path + "/" + s_process_log).c_str(), "w+");
+	s_process_log_fp = fopen(string(s_log_path + "/" + s_process_log).c_str(), "w+");
 	if ( !s_process_log_fp )
 	{
 		error_msg("can't create log file!");
@@ -216,7 +221,7 @@ void build_cells(string input_path, string output_path, bool compress, int compr
 	printf("***start building:\n --- in=%s, out=%s, zlib=%s, zlevel=%d\n",
 		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level);
 
-	fprintf(s_process_log_fp, "***start building:\n --- in=%s, out=%s, zlib=%s, zlevel=%d, suffix=%s\n",
+	fprintf(s_process_log_fp, "***start building:\n --- in=%s, out=%s, zlib=%s, zlevel=%d\n",
 		input_path.c_str(), output_path.c_str(), compress ? "true" : "false", compress_level);
 
 	s_inputpath = input_path;
