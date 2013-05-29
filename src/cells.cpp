@@ -28,7 +28,7 @@ const char* CDF_CELL_ZIP = "zip";
 CRegulation::CRegulation() : 
 	worker_thread_num(CELLS_DEFAULT_WORKERNUM), max_download_speed(CELLS_DOWNLOAD_SPEED_NOLIMIT),
 	auto_dispatch(true), only_local_mode(false), 
-	enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLAOD_SPEED),
+	enable_ghost_mode(false), max_ghost_download_speed(CELLS_GHOST_DOWNLOAD_SPEED),
 	enable_free_download(false), 
 	//zip_type(e_zip_none), zip_cdf(false),
 	remote_zipfile_suffix(CELLS_REMOTE_ZIPFILE_SUFFIX),

@@ -7,6 +7,15 @@
 
 #include "CUtils.h"
 
+#include <string>
+
+//#include <platform/CCFileUtils.h>
+//#include <support/zip_support/unzip.h>
+//using namespace cocos2d;
+#include <unzip.h>
+
+#define ZIP_BUFFER_SIZE 8192
+#define MAX_FILENAME   512
 
 namespace cells
 {
@@ -91,10 +100,134 @@ int CUtils::decompress(const char* file_in, const char* file_out)
 	return ret;
 }
 
-int CUtils::decompress_fd(FILE* fin, FILE* fout)
+bool CUtils::decompress_pkg(const char* filename, const char* outpath)
 {
-	return inf(fin, fout);
+	// Open the zip file
+	unzFile zipfile = unzOpen(filename);
+
+	if (! zipfile)
+	{
+		CLogE("[Cells] can not open zip file %s", filename);
+		return false;
+	}
+
+	// Get info about the zip file
+	unz_global_info global_info;
+	if (unzGetGlobalInfo(zipfile, &global_info) != UNZ_OK)
+	{
+		CLogE("[Cells] can not read file global info of %s", filename);
+		unzClose(zipfile);
+	}
+
+	// Buffer to hold data read from the zip file
+	char readBuffer[ZIP_BUFFER_SIZE];
+
+	CLogD("start uncompressing");
+
+	// Loop to extract all files.
+	uLong i;
+	for (i = 0; i < global_info.number_entry; ++i)
+	{
+		// Get info about current file.
+		unz_file_info fileInfo;
+		char fileName[MAX_FILENAME];
+		if (unzGetCurrentFileInfo(zipfile,
+			&fileInfo,
+			fileName,
+			MAX_FILENAME,
+			NULL,
+			0,
+			NULL,
+			0) != UNZ_OK)
+		{
+			CLogE("can not read file info");
+			unzClose(zipfile);
+			return false;
+		}
+
+		std::string fullPath = outpath;
+		fullPath += fileName;
+
+		// Check if this entry is a directory or a file.
+		const size_t filenameLength = strlen(fileName);
+		if (fileName[filenameLength-1] == '/')
+		{
+			// Entry is a direcotry, so create it.
+			// If the directory exists, it will failed scilently.
+			if (!builddir(fullPath.c_str()))
+			{
+				CLogE("can not create directory %s", fullPath.c_str());
+				unzClose(zipfile);
+				return false;
+			}
+		}
+		else
+		{
+			// Entry is a file, so extract it.
+
+			// Open current file.
+			if (unzOpenCurrentFile(zipfile) != UNZ_OK)
+			{
+				CLogE("can not open file %s", fileName);
+				unzClose(zipfile);
+				return false;
+			}
+
+			// Create a file to store current file.
+			FILE *out = fopen(fullPath.c_str(), "wb");
+			if (! out)
+			{
+				CLogE("can not open destination file %s", fullPath.c_str());
+				unzCloseCurrentFile(zipfile);
+				unzClose(zipfile);
+				return false;
+			}
+
+			// Write current file content to destinate file.
+			int error = UNZ_OK;
+			do
+			{
+				error = unzReadCurrentFile(zipfile, readBuffer, ZIP_BUFFER_SIZE);
+				if (error < 0)
+				{
+					CLogE("can not read zip file %s, error code is %d", fileName, error);
+					unzCloseCurrentFile(zipfile);
+					unzClose(zipfile);
+					return false;
+				}
+
+				if (error > 0)
+				{
+					fwrite(readBuffer, error, 1, out);
+				}
+			} while(error > 0);
+
+			fclose(out);
+		}
+
+		unzCloseCurrentFile(zipfile);
+
+		// Goto next entry listed in the zip file.
+		if ((i+1) < global_info.number_entry)
+		{
+			if (unzGoToNextFile(zipfile) != UNZ_OK)
+			{
+				CLogE("can not read next file");
+				unzClose(zipfile);
+				return false;
+			}
+		}
+	}
+
+	CLogD("end uncompressing");
+
+	return true;
 }
+
+//int CUtils::decompress_fd(FILE* fin, FILE* fout)
+//{
+//	return inf(fin, fout);
+//}
 
 std::string CUtils::filehash_md5str(FILE* fp, char* buf, size_t buf_size)
 {

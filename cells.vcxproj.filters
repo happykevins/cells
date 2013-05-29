@@ -7,6 +7,9 @@
     <Filter Include="tinyxml2">
       <UniqueIdentifier>{2f8899e7-d602-400c-abda-a6974d9be594}</UniqueIdentifier>
     </Filter>
+    <Filter Include="unzip">
+      <UniqueIdentifier>{00e76d1b-fa34-4127-8b73-cf0d619d4eb7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="thirdparty\tinyxml2\tinyxml2.h">
@@ -45,6 +48,12 @@
     <ClInclude Include="src\zpip.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="thirdparty\unzip\ioapi.h">
+      <Filter>unzip</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\unzip\unzip.h">
+      <Filter>unzip</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CCell.cpp">
@@ -76,6 +85,12 @@
     </ClCompile>
     <ClCompile Include="thirdparty\tinyxml2\tinyxml2.cpp">
       <Filter>tinyxml2</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\unzip\ioapi.c">
+      <Filter>unzip</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\unzip\unzip.c">
+      <Filter>unzip</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
