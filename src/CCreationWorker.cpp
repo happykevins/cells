@@ -16,6 +16,8 @@
 #include "CUtils.h"
 #include "CCells.h"
 #include "CCreationFactory.h"
+//#include <platform/CCSAXParser.h>
+//USING_NS_CC;
 
 #define BYTES_TO_FLUSH (1024 * 512)
 
@@ -77,6 +79,9 @@ void CCreationWorker::do_work()
 
 	CCell* cell = m_queue.pop_front();
 	m_queue.unlock();
+
+	// set watcher state
+	if ( cell->m_watcher ) cell->m_watcher->set_step(CProgressWatcher::e_verify_local);
 
 	// make local url
 	std::stringstream ss;
@@ -148,6 +153,9 @@ void CCreationWorker::do_work()
 		fclose(fp);
 	}
 
+	// set watcher state
+	if ( cell->m_watcher ) cell->m_watcher->set_step(CProgressWatcher::e_download);
+
 	// setup download environment
 	std::string downloadurl = localtmpurl;
 	bool need_decompress = false;
@@ -181,7 +189,34 @@ void CCreationWorker::do_work()
 		// decompress
 		if ( need_decompress )
 		{
-			if ( !work_decompress(downloadurl.c_str(), localurl.c_str()) )
+			// verify pkg
+			if ( cell->m_ziptype == e_zip_pkg )
+			{
+				fp = fopen(downloadurl.c_str(), "rb");
+				assert(fp);
+				if (fp)
+				{
+					// set watcher state
+					if ( cell->m_watcher ) cell->m_watcher->set_step(CProgressWatcher::e_verify_download);
+
+					if ( !work_verify_local(cell, fp) )
+					{
+						fclose(fp);
+						cell->m_errorno = e_loaderr_verify_failed;
+						work_finished(cell);
+						return;
+					}
+					fclose(fp);
+				}
+			}
+
+			// set watcher state
+			if ( cell->m_watcher ) cell->m_watcher->set_step(CProgressWatcher::e_unzip);
+
+			if ( !work_decompress(
+				downloadurl.c_str(), localurl.c_str(),
+				cell->m_watcher,
+				cell->m_ziptype == e_zip_pkg) )
 			{
 				CLogE("file decompress failed: name=%s;\n", cell->m_name.c_str());
 				cell->m_errorno = e_loaderr_decompress_failed;
@@ -200,8 +235,12 @@ void CCreationWorker::do_work()
 		}
 
 		// verify downloaded file
-		if ( cell->m_errorno == e_loaderr_ok && !cell->m_hash.empty() )
+		if ( cell->m_errorno == e_loaderr_ok && !cell->m_hash.empty() 
+			&& cell->m_ziptype != e_zip_pkg )
 		{
+			// set watcher state
+			if ( cell->m_watcher ) cell->m_watcher->set_step(CProgressWatcher::e_verify_download);
+
 			fp = fopen(localurl.c_str(), "rb");
 			if (fp)
 			{
@@ -245,6 +284,10 @@ size_t CCreationWorker::workload()
 
 void CCreationWorker::work_finished(CCell* cell)
 {
+	// set watcher state
+	if ( cell->m_watcher ) cell->m_watcher->set_step(
+		cell->m_errorno == e_loaderr_ok ? CProgressWatcher::e_finish : CProgressWatcher::e_error);
+
 	// notify factory work done!
 	m_host->notify_work_finished(cell);
 }
@@ -270,7 +313,10 @@ bool CCreationWorker::work_verify_local(CCell* cell, FILE* fp)
 	// 验证本地文件hash
 	assert(fp);
 
-	std::string md5str = CUtils::filehash_md5str(fp, m_databuf, sizeof(m_databuf));
+	std::string md5str = cell->m_watcher ? 
+		CUtils::filehash_md5str(fp, m_databuf, sizeof(m_databuf), 
+			(double*)&cell->m_watcher->now, (double*)&cell->m_watcher->total)
+		: CUtils::filehash_md5str(fp, m_databuf, sizeof(m_databuf));
 
 	if ( md5str != cell->m_hash )
 	{
@@ -370,7 +416,8 @@ eloaderror_t CCreationWorker::work_download_remote(CCell* cell, bool zip_mark, c
 	//
 	// perform download
 	//
-	CDownloader::edownloaderr_t result = m_downloadhandle.download(ss.str().c_str(), fp, bp_resume, bp_range_begin);
+	CDownloader::edownloaderr_t result = m_downloadhandle.download(
+		ss.str().c_str(), fp, bp_resume, bp_range_begin, cell->m_watcher);
 
 	//
 	// close out
@@ -399,11 +446,29 @@ eloaderror_t CCreationWorker::work_download_remote(CCell* cell, bool zip_mark, c
 	return e_loaderr_download_failed;
 }
 
-bool CCreationWorker::work_decompress(const char* tmplocalurl, const char* localurl)
+bool CCreationWorker::work_decompress(const char* tmplocalurl, const char* localurl, struct CProgressWatcher* watcher, bool pkg)
 {
-	bool ret = CUtils::decompress(tmplocalurl, localurl) == 0;
+	bool ret = false;
+
+	if ( pkg )
+	{
+		ret = watcher ? 
+			CUtils::decompress_pkg(
+				tmplocalurl, m_host->m_host->regulation().local_url.c_str(),
+				(double*)&watcher->now, (double*)&watcher->total)
+			: CUtils::decompress_pkg(tmplocalurl, m_host->m_host->regulation().local_url.c_str());
+	}
+	else
+	{
+		ret = watcher ? 
+			CUtils::decompress(tmplocalurl, localurl,
+				(double*)&watcher->now, (double*)&watcher->total) == 0 
+			: CUtils::decompress(tmplocalurl, localurl) == 0;
+	}
+	
 	bool rm_ret = CUtils::remove(tmplocalurl);
 	assert(rm_ret);
+
 	return ret;
 }
 
@@ -435,13 +500,16 @@ public:
 	{	
 		assert(m_cdf);
 
-		if ( strcmp(name, "cell") == 0 && *atts )
+		if ( (strcmp(name, CDF_TAG_CELL) == 0 || strcmp(name, CDF_TAG_PKG) == 0) && *atts )
 		{
 			props_t attrmap;
 			for ( size_t i = 0; atts[i] != NULL && atts[i+1] != NULL; i+=2 )
 			{
 				attrmap.insert(std::make_pair<std::string, std::string>(atts[i], atts[i+1]));
 			}
+
+			// parse is pkg
+			bool is_pkg = strcmp(name, CDF_TAG_PKG) == 0;
 
 			// parse name
 			const char* cell_name = NULL;
@@ -481,7 +549,11 @@ public:
 				cell_zhash = attrmap[CDF_CELL_ZHASH].c_str();
 			}
 
-			if ( attrmap.find(CDF_CELL_ZIP) != attrmap.end() )
+			if ( is_pkg )
+			{
+				cell_ziptype = e_zip_pkg;
+			}
+			else if ( attrmap.find(CDF_CELL_ZIP) != attrmap.end() )
 			{
 				int cell_ziptype_tmp = CUtils::atoi(attrmap[CDF_CELL_ZIP].c_str());
 				if ( cell_ziptype_tmp != 0 )
@@ -493,7 +565,11 @@ public:
 			// parse file type
 			estatetype_t cell_type = e_state_file_common;
 
-			if ( attrmap.find(CDF_CELL_CDF) != attrmap.end() )
+			if ( is_pkg )
+			{
+				cell_type = e_state_file_pkg;
+			}
+			else if ( attrmap.find(CDF_CELL_CDF) != attrmap.end() )
 			{
 				bool is_cdf = CUtils::atoi(attrmap[CDF_CELL_CDF].c_str()) == 1;
 				if ( is_cdf )
@@ -575,8 +651,11 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				cells_section->FirstChildElement(); cell_section;
 				cell_section = cell_section->NextSiblingElement())
 			{
-				const char* cell_name = cell_section->Attribute(CDF_CELL_NAME);
+				// parse is pkg
+				bool is_pkg = strcmp(CDF_TAG_PKG, cell_section->Name()) == 0;
 
+				// parse name
+				const char* cell_name = cell_section->Attribute(CDF_CELL_NAME);
 				if (!cell_name )
 				{
 					CLogI("null cell name in cdf: %s. \n", cell->m_name.c_str());
@@ -591,23 +670,42 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 				CUtils::str_replace_ch(cell_name_tmp, '\\', '/');
 				if ( cell_name_tmp.find_first_of('/') != 0 )	cell_name_tmp = "/" + cell_name_tmp;
 
+				// parse hash
 				const char* cell_hash = cell_section->Attribute(CDF_CELL_HASH);
 				const char* cell_zhash = cell_section->Attribute(CDF_CELL_ZHASH);
-				int cell_ziptype_tmp = CUtils::atoi(cell_section->Attribute(CDF_CELL_ZIP));
+
+				// parse zip type
 				eziptype_t cell_ziptype = e_zip_none;
-				if ( cell_ziptype_tmp != 0 )
+
+				if ( is_pkg )
 				{
-					cell_ziptype = e_zip_zlib;
+					cell_ziptype = e_zip_pkg;
+				}
+				else
+				{
+					int cell_ziptype_tmp = CUtils::atoi(cell_section->Attribute(CDF_CELL_ZIP));
+					if ( cell_ziptype_tmp != 0 )
+					{
+						cell_ziptype = e_zip_zlib;
+					}
 				}
 
+				// parse state
 				estatetype_t cell_type = e_state_file_common;
-				bool is_cdf = CUtils::atoi(cell_section->Attribute(CDF_CELL_CDF)) == 1;
-				if (is_cdf)
-					cell_type = e_state_file_cdf;
-				if (!cell_hash)
+				if ( is_pkg )
 				{
-					CLogI("hash code not specified for %s. \n", cell_name);
-					cell_hash = "";
+					cell_type = e_state_file_pkg;
+				}
+				else
+				{
+					bool is_cdf = CUtils::atoi(cell_section->Attribute(CDF_CELL_CDF)) == 1;
+					if (is_cdf)
+						cell_type = e_state_file_cdf;
+					if (!cell_hash)
+					{
+						CLogI("hash code not specified for %s. \n", cell_name);
+						cell_hash = "";
+					}
 				}
 
 				CCell* cell = new CCell(cell_name_tmp, cell_hash, cell_type);

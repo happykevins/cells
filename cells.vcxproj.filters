@@ -54,6 +54,9 @@
     <ClInclude Include="thirdparty\unzip\unzip.h">
       <Filter>unzip</Filter>
     </ClInclude>
+    <ClInclude Include="thirdparty\unzip\zip.h">
+      <Filter>unzip</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CCell.cpp">
@@ -90,6 +93,12 @@
       <Filter>unzip</Filter>
     </ClCompile>
     <ClCompile Include="thirdparty\unzip\unzip.c">
+      <Filter>unzip</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\unzip\zip.c">
+      <Filter>unzip</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\unzip\minizip.c">
       <Filter>unzip</Filter>
     </ClCompile>
   </ItemGroup>

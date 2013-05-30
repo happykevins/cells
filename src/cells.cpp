@@ -22,7 +22,8 @@ const char* CDF_CELL_SIZE = "size";
 const char* CDF_CELL_ZHASH = "zhash";
 const char* CDF_CELL_ZSIZE = "zsize";
 const char* CDF_CELL_ZIP = "zip";
-
+const char* CDF_TAG_PKG = "pkg";
+const char* CDF_TAG_CELL = "cell";
 
 // default value
 CRegulation::CRegulation() : 
@@ -33,6 +34,42 @@ CRegulation::CRegulation() :
 	//zip_type(e_zip_none), zip_cdf(false),
 	remote_zipfile_suffix(CELLS_REMOTE_ZIPFILE_SUFFIX),
 	tempfile_suffix(CELLS_DEFAULT_TEMP_SUFFIX), temphash_suffix(CELLS_DEFAULT_HASH_SUFFIX)
+{
+}
+
+float CProgressWatcher::progress()
+{
+	switch ( step )
+	{
+	case e_initial:
+	case e_error:
+		return .0f;
+	case e_finish:
+		return 100.0f;
+	case e_verify_local:
+	case e_verify_download:
+	case e_unzip:
+	case e_download:
+		break;
+	}
+
+	if ( total > 0 )
+	{
+		return int((now / total) * 10000) * 0.01f;
+	}
+
+	return .0f;
+}
+
+void CProgressWatcher::set_step(estep_t _step) 
+{ 
+	step = _step; 
+	now = .0f; 
+	total = .0f; 
+}
+
+CProgressWatcher::CProgressWatcher() 
+	: step(e_initial), now(.0f), total(.0f)
 {
 }
 

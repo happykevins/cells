@@ -37,6 +37,8 @@ extern const char* CDF_CELL_SIZE;		//= "size"		int
 extern const char* CDF_CELL_ZHASH;		//= "zhash"		string
 extern const char* CDF_CELL_ZSIZE;		//= "zsize"		int
 extern const char* CDF_CELL_ZIP;		//=	"zip"		int				0 - nozip | 1 - zlib
+extern const char* CDF_TAG_PKG;			//= "pkg"
+extern const char* CDF_TAG_CELL;		//= "cell"
 
 // 属性表
 typedef std::map<std::string, std::string> props_t; 
@@ -49,6 +51,7 @@ enum eziptype_t
 	e_zip_cdfconfig = -1,	// 由CDF中的描述决定
 	e_zip_none = 0,			// 未压缩
 	e_zip_zlib,				// 使用zlib压缩
+	e_zip_pkg,				// zip package
 };
 
 // state类型
@@ -56,7 +59,8 @@ enum estatetype_t
 {
 	e_state_file_common = 0,	// 普通文件
 	e_state_file_cdf = 1,		// CDF文件
-	e_state_event_alldone = 3	// callback事件：代表请求的任务全部完成
+	e_state_file_pkg = 2,		// PKG文件
+	e_state_event_alldone = 10	// callback事件：代表请求的任务全部完成
 };
 
 // 优先级
@@ -171,6 +175,29 @@ CFunctorM<T>* make_functor_m(T* _t, typename CFunctorM<T>::mfunc_t _f)
 	return new CFunctorM<T>(_t, _f);
 }
 
+struct CProgressWatcher
+{
+	enum estep_t
+	{
+		e_initial,
+		e_verify_local,
+		e_download,
+		e_unzip,
+		e_verify_download,
+		e_finish,
+		e_error
+	};
+
+	volatile estep_t step;
+	volatile double now;	// progress now
+	volatile double total;	// progress total
+
+	float progress(); // format: 100.00%
+
+	void set_step(estep_t _step);
+	CProgressWatcher();
+};
+
 //
 // cells系统接口
 //
@@ -219,13 +246,29 @@ public:
 	*	@param cdf_load_type - 加载完cdf文件后，如何处理子文件
 	*	@param zip_type - 请求文件的压缩类型，默认由CDF配置决定
 	*	@param user_context - 回调时传递给observer的user_context
+	*	@param watcher - 加载状态监控器
 	*	@return - 是否成功：name语法问题会导致失败
 	*/
 	virtual bool post_desire_cdf(const std::string& name, 
 		int priority = e_priority_exclusive, 
 		ecdf_loadtype_t cdf_load_type = e_cdf_loadtype_config,
 		eziptype_t zip_type = e_zip_cdfconfig,
-		void* user_context = NULL) = 0;
+		void* user_context = NULL,
+		CProgressWatcher* watcher = NULL) = 0;
+
+	/*
+	* 需求一个package文件
+	* 	1.pkg - a package is a zip file contains serious files
+	* 	@param name - 文件名
+	* 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
+	*	@param user_context - 回调时传递给observer的user_context
+	*	@param watcher - 加载状态监控器
+	*	@return - 是否成功：name语法问题会导致失败
+	*/
+	virtual bool post_desire_pkg(const std::string& name, 
+		int priority = e_priority_exclusive, 
+		void* user_context = NULL,
+		CProgressWatcher* watcher = NULL) = 0;
 
 	/*
 	* 需求一个用户文件
@@ -234,12 +277,14 @@ public:
 	* 	@param priority - 优先级,此值越高，越会优先处理; priority_exclusive代表抢占模式
 	*	@param zip_type - 请求文件的压缩类型，默认由CDF配置决定
 	*	@param user_context - 回调时传递给observer的user_context
+	*	@param watcher - 加载状态监控器
 	*	@return - 是否成功：如果没有开启free_download，如果需求之前加载的cdf表中没有包含的文件，会导致返回失败
 	*/
 	virtual bool post_desire_file(const std::string& name, 
 		int priority = e_priority_default,
 		eziptype_t zip_type = e_zip_cdfconfig,
-		void* user_context = NULL) = 0;
+		void* user_context = NULL,
+		CProgressWatcher* watcher = NULL) = 0;
 
 	/*
 	* 注册监听器，事件完成会收到通知

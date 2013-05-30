@@ -46,33 +46,18 @@ public:
 	}
 };
 
-void on_finish(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
-{
-	printf("**Global::on_finish: name=%s; type=%d; error=%d;\n", name.c_str(), type, error_no);
-	if ( error_no != 0 )
-	{
-		return;
-	}
-	cdf_ok = true;
-
-	printf("--**Props:");
-	for (props_t::const_iterator it = props->begin(); it != props->end(); it++)
-	{
-		printf("[%s=%s] ", it->first.c_str(), it->second.c_str());
-	}
-	printf("\n");
-}
-
 int main(int argc, char *argv[])
 {	
 	Observer obs;
 
+	CProgressWatcher watcher;
+
 	CRegulation rule;
 	rule.auto_dispatch = true;
 	rule.only_local_mode = false;
-	rule.worker_thread_num = 4;
+	rule.worker_thread_num = 1;
 	rule.max_download_speed = 1024 * 1024 * 10; 
-	rule.enable_ghost_mode = true;
+	rule.enable_ghost_mode = false;
 	rule.max_ghost_download_speed = 1024 * 1024;
 	rule.local_url = "./downloads/";
 	//rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
@@ -89,21 +74,48 @@ int main(int argc, char *argv[])
 	//cells.register_observer(&on_finish, make_functor_g(on_finish));
 	cells->register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
-	cells->post_desire_cdf("cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
+	cells->post_desire_cdf("_cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade, e_zip_none/*, NULL, &watcher*/);
+		
+	while( !all_done )
+	{
+		CUtils::sleep(20);
+		if (!rule.auto_dispatch)
+			cells->tick_dispatch(0.02f);
+	}
+
+	all_done = false;
+	cells->post_desire_pkg("_pkg/res.zip", e_priority_default, NULL, &watcher);
 
 	//while( !all_done )
 	//{
-	//	CUtils::sleep(500);
+	//	CUtils::sleep(20);
+	//	if (!rule.auto_dispatch)
+	//		cells->tick_dispatch(0.02f);
 	//}
 
-	cells->post_desire_cdf("cdf/free.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
+	//all_done = false;
+	//cells->post_desire_file("STHeiti Medium.ttc", e_priority_default, e_zip_zlib, NULL, &watcher);
+
+	//cells->post_desire_cdf("cdf/free.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
 
 
 	while(true)
 	{
-		CUtils::sleep(500);
+		CUtils::sleep(20);
 		if (!rule.auto_dispatch)
-			cells->tick_dispatch(0.05f);
+			cells->tick_dispatch(0.02f);
+
+		static int step_prev = 0;
+		static int prog_prev = 0;
+
+		int prog_now = (int)watcher.progress();
+
+		if ( step_prev != watcher.step || prog_now != prog_prev )
+		{
+			printf("WATCH: STEP=%d, PROG=%d%%\n", watcher.step, prog_now);
+			step_prev = watcher.step;
+			prog_prev = prog_now;
+		}
 	}
 
 	cells->remove_observer(&obs);

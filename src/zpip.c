@@ -80,7 +80,7 @@ int def(FILE *source, FILE *dest, int level)
    invalid or incomplete, Z_VERSION_ERROR if the version of zlib.h and
    the version of the library linked do not match, or Z_ERRNO if there
    is an error reading or writing the files. */
-int inf(FILE *source, FILE *dest)
+int inf(FILE *source, FILE *dest, double* progress /*= NULL*/)
 {
     int ret;
     unsigned have;
@@ -101,10 +101,18 @@ int inf(FILE *source, FILE *dest)
     /* decompress until deflate stream ends or end of file */
     do {
         strm.avail_in = fread(in, 1, CHUNK, source);
+
         if (ferror(source)) {
             (void)inflateEnd(&strm);
             return Z_ERRNO;
         }
+
+		// advance progress
+		if ( progress )
+		{
+			*progress += strm.avail_in;
+		}
+
         if (strm.avail_in == 0)
             break;
         strm.next_in = in;

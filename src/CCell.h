@@ -53,6 +53,7 @@ public:
 	eziptype_t	m_ziptype;
 
 	CCDF* m_cdf;
+	CProgressWatcher* m_watcher;
 };
 
 /*

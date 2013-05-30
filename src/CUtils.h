@@ -53,12 +53,12 @@ public:
 	// zlib compress & decompress
 	static int compress(const char* file_in, const char* file_out, int level = -1);
 	static int compress_fd(FILE* fin, FILE* fout, int level = -1);
-	static int decompress(const char* file_in, const char* file_out);
-	static bool decompress_pkg(const char* filename, const char* outpath);
+	static int decompress(const char* file_in, const char* file_out, double* pnow = NULL, double* ptotal = NULL);
+	static bool decompress_pkg(const char* filename, const char* outpath, double* pnow = NULL, double* ptotal = NULL);
 	//static int decompress_fd(FILE* fin, FILE* fout);
 
 	// hash utils
-	static std::string filehash_md5str(FILE* fp, char* buf, size_t buf_size);
+	static std::string filehash_md5str(FILE* fp, char* buf, size_t buf_size, double* pnow = NULL, double* ptotal = NULL);
 
 	// directory access
 	static bool access(const char* path, int mode);

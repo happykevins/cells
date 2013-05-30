@@ -14,7 +14,7 @@ Version 1.4  11 December 2005  Mark Adler */
 #endif
 
 extern "C" int def(FILE *source, FILE *dest, int level);
-extern "C" int inf(FILE *source, FILE *dest);
+extern "C" int inf(FILE *source, FILE *dest, double* progress = NULL);
 extern "C" void zerr(int ret);
 
 #endif /* ZPIP_H_ */

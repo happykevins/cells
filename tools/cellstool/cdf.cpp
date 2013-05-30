@@ -240,9 +240,34 @@ bool process_cdf(string input_file, string output_file, string rel_file)
 	return true;
 }
 
+cell_attr* add_file2index(const char* filename)
+{
+	FILE* fp = fopen(string(s_outputpath + "/" + filename).c_str(), "rb");
+	if ( !fp )
+	{
+		return NULL;
+	}
+
+	string md5str = CUtils::filehash_md5str(fp, s_data_buf, sizeof(s_data_buf));
+	int ret = fseek(fp, 0, SEEK_END);  
+	assert_break(ret == 0);
+	size_t file_size = ftell(fp); 
+
+	cell_attr* attr = new cell_attr;
+	attr->omd5 = md5str;
+	attr->osize = file_size;
+	attr->is_cdf = false;
+
+	fclose(fp);
+
+	s_idxmap.insert(std::make_pair(filename, attr));
+
+	return attr;
+}
 
 void setup_cdf(task_attr* task)
 {
+	string tag = "cell";
 	string input_name = task->input_name;
 	string temp_name = input_name + s_temp_suffix;
 	string output_name = task->output_name;
@@ -274,7 +299,7 @@ void setup_cdf(task_attr* task)
 	// write begin cells section
 	fprintf(output_fp, "<cells");
 	// write attrs
-	for ( size_t ai = 0; ai < task->attrs.size(); ai++)
+	for ( int ai = task->attrs.size() - 1; ai >= 0; ai--)
 	{
 		fprintf(output_fp, " %s ", task->attrs[ai].c_str());
 	}
@@ -288,41 +313,66 @@ void setup_cdf(task_attr* task)
 		has_next = parse_line(input_fp, strs);
 		if ( strs.empty() ) break;
 
-		idxmap_t::iterator it = s_idxmap.find(strs[0]);
+		string cellname = strs[0];
+		size_t tag_pos = cellname.find_first_of(':');
+		if ( tag_pos != string::npos )
+		{
+			tag = cellname.substr(0, tag_pos);
+			cellname = cellname.substr(tag_pos+1);
+		}
+
+		idxmap_t::iterator it = s_idxmap.find(cellname);
+		cell_attr* attr = NULL;
 		if ( it == s_idxmap.end() )
 		{
+			attr = add_file2index(cellname.c_str());
+
 			// error!
-			fprintf(s_process_log_fp, "[error]cdf %s desire a non-exsit file %s\n", task->input_name.c_str(), strs[0].c_str() );
-			s_error_counter++;
-			continue;
+			if ( !attr )
+			{
+				fprintf(s_process_log_fp, "[error]cdf %s desire a non-exsit file %s\n", task->input_name.c_str(), strs[0].c_str() );
+				s_error_counter++;
+				continue;
+			}
+
+			// package hack
+			if ( strcmp("pkg", tag.c_str()) == 0 )
+			{
+				attr->zmd5 = attr->omd5;
+				attr->zsize = attr->osize;
+			}
+		}
+		else
+		{
+			attr = it->second;
 		}
 		// mark is in cdf
-		it->second->in_cdf = true;
+		attr->in_cdf = true;
 
 		// write cell begin
-		fprintf(output_fp, "\t<cell ");
+		fprintf(output_fp, "\t<%s ", tag.c_str());
 
 		// write name
-		fprintf(output_fp, "name=\"%s\" ", it->first.c_str());
+		fprintf(output_fp, "name=\"%s\" ", cellname.c_str());
 		// write md5
-		fprintf(output_fp, "hash=\"%s\" ", it->second->omd5.c_str());
+		fprintf(output_fp, "hash=\"%s\" ", attr->omd5.c_str());
 		// write size
-		fprintf(output_fp, "size=\"%d\" ", it->second->osize);
+		fprintf(output_fp, "size=\"%d\" ", attr->osize);
 
 		// write zip attr
-		if ( !it->second->zmd5.empty() )
+		if ( !attr->zmd5.empty() )
 		{
 			// write md5
 			fprintf(output_fp, "zip=\"1\" ");
 
 			// write md5
-			fprintf(output_fp, "zhash=\"%s\" ", it->second->zmd5.c_str());
+			fprintf(output_fp, "zhash=\"%s\" ", attr->zmd5.c_str());
 			// write size
-			fprintf(output_fp, "zsize=\"%d\" ", it->second->zsize);
+			fprintf(output_fp, "zsize=\"%d\" ", attr->zsize);
 		}
 
 		// is cdf file
-		if ( it->second->is_cdf )
+		if ( attr->is_cdf )
 		{
 			// mark cdf
 			fprintf(output_fp, "cdf=\"1\" ");

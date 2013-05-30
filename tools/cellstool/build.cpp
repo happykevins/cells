@@ -186,7 +186,8 @@ static void visit_build(string path, string relpath = "")
 	{
 		while( !_findnext(handle,&file_info) ) // first is "."
 		{
-			if( (file_info.attrib & _A_SUBDIR) == _A_SUBDIR  && strcmp(file_info.name, "..") )
+			if( (file_info.attrib & _A_SUBDIR) == _A_SUBDIR  && strcmp(file_info.name, "..") 
+				&& file_info.name[0] != '_' )
 			{   
 				printf("folder:%s", string(relpath + file_info.name).c_str());
 				process_folder(path + "/", relpath, file_info.name) ? 

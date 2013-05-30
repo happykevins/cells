@@ -77,7 +77,7 @@ int CUtils::compress_fd(FILE* fin, FILE* fout, int level)
 	return def(fin, fout, level);
 }
 
-int CUtils::decompress(const char* file_in, const char* file_out)
+int CUtils::decompress(const char* file_in, const char* file_out, double* pnow /*= NULL*/, double* ptotal /*= NULL*/)
 {
 	FILE* fin = fopen(file_in, "rb");
 	if ( !fin )
@@ -85,6 +85,14 @@ int CUtils::decompress(const char* file_in, const char* file_out)
 		CLogD("CUtils::decompress: open input file failed %s\n", file_in);
 		return -1;
 	}
+
+	if ( ptotal )
+	{
+		fseek(fin, 0, SEEK_END); 
+		*ptotal = ftell(fin);
+		fseek(fin, 0, SEEK_SET);
+	}
+
 	FILE* fout = fopen(file_out, "wb+");
 	if ( !fout )
 	{
@@ -93,14 +101,14 @@ int CUtils::decompress(const char* file_in, const char* file_out)
 		return -1;
 	}
 
-	int ret = inf(fin, fout);
+	int ret = inf(fin, fout, pnow);
 
 	fclose(fout);
 	fclose(fin);
 	return ret;
 }
 
-bool CUtils::decompress_pkg(const char* filename, const char* outpath)
+bool CUtils::decompress_pkg(const char* filename, const char* outpath, double* pnow /*= NULL*/, double* ptotal /*= NULL*/)
 {
 	// Open the zip file
 	unzFile zipfile = unzOpen(filename);
@@ -117,6 +125,12 @@ bool CUtils::decompress_pkg(const char* filename, const char* outpath)
 	{
 		CLogE("[Cells] can not read file global info of %s", filename);
 		unzClose(zipfile);
+	}
+
+	// progress total
+	if ( ptotal )
+	{
+		*ptotal = global_info.number_entry;
 	}
 
 	// Buffer to hold data read from the zip file
@@ -207,6 +221,12 @@ bool CUtils::decompress_pkg(const char* filename, const char* outpath)
 
 		unzCloseCurrentFile(zipfile);
 
+		// progress now
+		if ( pnow )
+		{
+			*pnow = i;
+		}
+
 		// Goto next entry listed in the zip file.
 		if ((i+1) < global_info.number_entry)
 		{
@@ -220,6 +240,7 @@ bool CUtils::decompress_pkg(const char* filename, const char* outpath)
 	}
 
 	CLogD("end uncompressing");
+	unzClose(zipfile);
 
 	return true;
 }
@@ -229,8 +250,15 @@ bool CUtils::decompress_pkg(const char* filename, const char* outpath)
 //	return inf(fin, fout);
 //}
 
-std::string CUtils::filehash_md5str(FILE* fp, char* buf, size_t buf_size)
+std::string CUtils::filehash_md5str(FILE* fp, char* buf, size_t buf_size, double* pnow /*= NULL*/, double* ptotal /*= NULL*/)
 {
+	if ( ptotal )
+	{
+		fseek(fp, 0, SEEK_END); 
+		*ptotal = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+	}
+
 	md5_state_t state;
 	md5_byte_t digest[16];
 	char hex_output[16*2 + 1];
@@ -241,6 +269,11 @@ std::string CUtils::filehash_md5str(FILE* fp, char* buf, size_t buf_size)
 		size_t readsize = fread(buf, 1, buf_size, fp);
 		file_size += readsize;
 		md5_append(&state, (const md5_byte_t *)buf, readsize);
+
+		if ( pnow )
+		{
+			*pnow = file_size;
+		}
 	} while( !feof(fp) && !ferror(fp) );
 	md5_finish(&state, digest);
 

@@ -99,6 +99,7 @@
     <ClInclude Include="thirdparty\tinyxml2\tinyxml2.h" />
     <ClInclude Include="thirdparty\unzip\ioapi.h" />
     <ClInclude Include="thirdparty\unzip\unzip.h" />
+    <ClInclude Include="thirdparty\unzip\zip.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CCell.cpp" />
@@ -112,7 +113,9 @@
     <ClCompile Include="src\zpip.c" />
     <ClCompile Include="thirdparty\tinyxml2\tinyxml2.cpp" />
     <ClCompile Include="thirdparty\unzip\ioapi.c" />
+    <ClCompile Include="thirdparty\unzip\minizip.c" />
     <ClCompile Include="thirdparty\unzip\unzip.c" />
+    <ClCompile Include="thirdparty\unzip\zip.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

@@ -7,6 +7,7 @@
 
 #include "CDownloader.h"
 #include "CPlatform.h"
+#include "cells.h"
 
 #include <curl/curl.h>
 #include <stdio.h>
@@ -32,6 +33,19 @@ size_t CDownloader::process_data(void* buffer, size_t size, size_t nmemb,
 	return cbs;
 }
 
+int CDownloader::progress(void *ctx, double dlTotal, double dlNow, double upTotal, double upNow)
+{
+	if (dlTotal > 0 && ctx)
+	{
+		CLogD("[Cells]: downloading... %d%%\n", (int)(dlNow/dlTotal*100));
+		CProgressWatcher* watcher = (CProgressWatcher*)ctx;
+		watcher->now = dlNow;
+		watcher->total = dlTotal;
+	}
+
+	return 0;
+}
+
 CDownloader::CDownloader(CCreationWorker* host) :
 		m_host(host), m_handle(NULL), m_stream(NULL)
 {
@@ -46,6 +60,8 @@ CDownloader::CDownloader(CCreationWorker* host) :
 	// TODO: 监测是否会产生大量CLOSE_WAIT
 	//curl_easy_setopt(m_handle, CURLOPT_FORBID_REUSE, 1);
 	curl_easy_setopt(m_handle, CURLOPT_WRITEDATA, this);
+	curl_easy_setopt(m_handle, CURLOPT_NOPROGRESS, false);
+	curl_easy_setopt(m_handle, CURLOPT_PROGRESSFUNCTION, CDownloader::progress);
 }
 
 CDownloader::~CDownloader()
@@ -53,13 +69,17 @@ CDownloader::~CDownloader()
 	curl_easy_cleanup(m_handle);
 }
 
-CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, bool bp_resume, size_t bp_range_begin)
+CDownloader::edownloaderr_t CDownloader::download(const char* url, FILE* fp, 
+	bool bp_resume, size_t bp_range_begin, CProgressWatcher* watcher/* = NULL*/)
 {
 	assert(fp);
 	m_stream = fp;
 	curl_off_t mspeed = m_host->calc_maxspeed();
 	curl_easy_setopt(m_handle, CURLOPT_MAX_RECV_SPEED_LARGE, mspeed);
 	curl_easy_setopt(m_handle, CURLOPT_URL, url);
+
+	if ( watcher )
+		curl_easy_setopt(m_handle, CURLOPT_PROGRESSDATA, watcher);
 
 	// 设置断点续传: 使用CURLOPT_RESUME_FROM_LARGE
 	if ( bp_resume )

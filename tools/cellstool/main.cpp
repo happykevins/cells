@@ -121,6 +121,7 @@ void print_help()
 	printf("\n");
 
 	printf("\t-b --build : build specified path for cells system.\n");
+	printf("\t\t*notice: a sub directory start with '_' will never be processed! \n");
 	printf("\t\t-i=... : input path; no default value.\n");
 	printf("\t\t-o=... : output path: no default value. \n");
 	printf("\t\t-z[=level] : compress file use zlib. can specify level for compress level, default is -1. \n");
@@ -130,7 +131,7 @@ void print_help()
 	printf("\t\t-i=... : input config files path; no default value.\n");
 	printf("\t\t-o=... : object path: no default value. \n");
 	printf("\t\t-cdfidx=... : index file name for cdf building tool; default '%s'. \n", s_cdf_input_idxfile.c_str());
-	printf("\t\t-freecdf=... : free files cdf name; default '%s'. \n", s_freefiles_name.c_str());
+	printf("\t\t-freecdf=... : free files cdf name; default '%s'. \n", s_freefiles_cdf_name.c_str());
 	printf("\t\t-z[=level] : compress cdf use zlib. can specify level for compress level, default is -1. \n");
 	printf("\n");
 

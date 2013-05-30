@@ -16,6 +16,7 @@ namespace cells
 
 class CCell;
 class CCreationWorker;
+struct CProgressWatcher;
 
 typedef void download_handle_t;
 
@@ -34,10 +35,11 @@ public:
 	CDownloader(CCreationWorker* host);
 	~CDownloader();
 
-	edownloaderr_t download(const char* url, FILE* fp, bool bp_resume, size_t bp_range_begin);
+	edownloaderr_t download(const char* url, FILE* fp, bool bp_resume, size_t bp_range_begin, CProgressWatcher* watcher = NULL);
 
 private:
 	static size_t process_data(void* buffer, size_t size, size_t nmemb, void* context);
+	static int progress(void *ctx, double dlTotal, double dlNow, double upTotal, double upNow);
 
 	CCreationWorker* m_host;
 	download_handle_t* m_handle;
