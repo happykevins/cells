@@ -1,9 +1,27 @@
-/*
- * CCreationWorker.cpp
- *
- *  Created on: 2012-12-12
- *      Author: happykevins@gmail.com
- */
+/****************************************************************************
+ Copyright (c) 2012-2013 Kevin Sun and RenRen Games
+
+ email:happykevins@gmail.com
+ http://wan.renren.com
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ 
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ 
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+ ****************************************************************************/
 
 #include "CCreationWorker.h"
 
@@ -11,13 +29,18 @@
 #include <sstream>
 #include <set>
 #include <assert.h>
-#include <tinyxml2.h>
 
 #include "CUtils.h"
 #include "CCells.h"
 #include "CCreationFactory.h"
-//#include <platform/CCSAXParser.h>
-//USING_NS_CC;
+
+#if USING_COCOS2DX
+#include <platform/CCSAXParser.h>
+USING_NS_CC;
+#else
+#include <tinyxml2.h>
+#endif
+
 
 #define BYTES_TO_FLUSH (1024 * 512)
 
@@ -30,32 +53,53 @@ void* CCreationWorker::working(void* context)
 
 	while (worker->m_working)
 	{
-		int sem_retv = sem_wait(&(worker->m_sem));
+		int sem_retv = sem_wait(worker->m_psem);
 		assert(sem_retv >= 0);
 
 		worker->do_work();
 	}
 
-	sem_destroy(&(worker->m_sem));
+	sem_destroy(worker->m_psem);
 
 	return 0;
 }
 
 CCreationWorker::CCreationWorker(CCreationFactory* host, size_t no) :
-		m_host(host), m_workno(no), m_working(true), m_downloadhandle(this),
+		m_host(host), m_workno(no), m_working(true), m_psem(NULL), m_downloadhandle(this),
 		m_downloadbytes(0), m_cachedbytes(0)
 {
 	assert(host);
+	
+#if defined(CC_TARGET_PLATFORM) && CC_TARGET_PLATFORM == CC_PLATFORM_IOS
+	char sem_name[32] = {0};
+	sprintf(sem_name, "cells_worker_sem_%d", no);
+	m_psem = sem_open(sem_name, O_CREAT, 0644, 0);
+	if ( m_psem == SEM_FAILED )
+	{
+		m_psem = NULL;
+		assert(0);
+	}
+#else
 	int ret = sem_init(&m_sem, 0, 0);
 	assert(ret == 0);
+	if ( ret == 0 )
+	{
+		m_psem = &m_sem;
+	}
+#endif
+
 	pthread_create(&m_thread, NULL, CCreationWorker::working, this);
 }
 
 CCreationWorker::~CCreationWorker()
 {
 	m_working = false;
-	sem_post(&m_sem);
+	sem_post(m_psem);
 	pthread_join(m_thread, NULL);
+
+#if CC_TARGET_PLATFORM == CC_PLATFORM_IOS
+	sem_close(m_psem);
+#endif
 }
 
 void CCreationWorker::post_work(CCell* cell)
@@ -64,7 +108,7 @@ void CCreationWorker::post_work(CCell* cell)
 	m_queue.lock();
 	m_queue.push(cell);
 	m_queue.unlock();
-	sem_post(&m_sem);
+	sem_post(m_psem);
 }
 
 void CCreationWorker::do_work()
@@ -472,7 +516,7 @@ bool CCreationWorker::work_decompress(const char* tmplocalurl, const char* local
 	return ret;
 }
 
-/**
+#if USING_COCOS2DX
 // cocos2d xml parser
 class CDFParser: public CCSAXDelegator
 {
@@ -619,11 +663,21 @@ private:
 	CCDF* m_cdf;
 
 };//CellParser
-**/
+#endif//#if USING_COCOS2DX
 
 bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 {
 	bool cdf_result = false;
+
+#if USING_COCOS2DX
+	// cocos2dx implement
+	CDFParser parser;
+	if ( cell->m_celltype == e_state_file_cdf
+		&& (cell->m_cdf = parser.parse(cell, localurl)) )
+	{
+		cdf_result = true;
+	}
+#else//#if USING_COCOS2DX
 
 	// setup cdf
 	using namespace tinyxml2;
@@ -729,16 +783,7 @@ bool CCreationWorker::work_patchup_cell(CCell* cell, const char* localurl)
 		cdf_result = true;
 		cell->m_cdf = ret_cdf;
 	}
-
-	/**
-	// cocos2dx implement
-	CDFParser parser;
-	if ( cell->m_celltype == e_state_file_cdf
-		&& (cell->m_cdf = parser.parse(cell, localurl)) )
-	{
-		cdf_result = true;
-	}
-	**/
+#endif//#if USING_COCOS2DX
 
 	// cdf file
 	if ( !cdf_result && cell->m_celltype == e_state_file_cdf )

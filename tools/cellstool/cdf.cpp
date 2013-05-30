@@ -250,7 +250,7 @@ cell_attr* add_file2index(const char* filename)
 
 	string md5str = CUtils::filehash_md5str(fp, s_data_buf, sizeof(s_data_buf));
 	int ret = fseek(fp, 0, SEEK_END);  
-	assert_break(ret == 0);
+	assert(ret == 0);
 	size_t file_size = ftell(fp); 
 
 	cell_attr* attr = new cell_attr;

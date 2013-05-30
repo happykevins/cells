@@ -1,18 +1,39 @@
-/*
- * CUtils.cpp
- *
- *  Created on: 2012-12-14
- *      Author: happykevins@gmail.com
- */
+/****************************************************************************
+ Copyright (c) 2012-2013 Kevin Sun and RenRen Games
+
+ email:happykevins@gmail.com
+ http://wan.renren.com
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ 
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ 
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+ ****************************************************************************/
 
 #include "CUtils.h"
 
 #include <string>
 
-//#include <platform/CCFileUtils.h>
-//#include <support/zip_support/unzip.h>
-//using namespace cocos2d;
-#include <unzip.h>
+#if USING_COCOS2DX
+#include <platform/CCFileUtils.h>
+#include <support/zip_support/unzip.h>
+using namespace cocos2d;
+#else
+#	include <unzip.h>
+#endif
 
 #define ZIP_BUFFER_SIZE 8192
 #define MAX_FILENAME   512
@@ -34,7 +55,7 @@ bool CUtils::gettimeofday(timeval_t* tv, void* tz)
 	}
 	return false;
 #else
-	return ::gettimeofday((timeval*)tv, (__timezone_ptr_t)tz) == 0;
+	return ::gettimeofday((timeval*)tv, NULL/*(__timezone_ptr_t)tz*/) == 0;
 #endif
 }
 
@@ -311,7 +332,8 @@ bool CUtils::builddir(const char* path)
 
 	size_t end = str.find_last_not_of('/');
 	bool dummy = false;
-	for ( size_t i = 0; i < str.size(); i++ )
+	for ( size_t i = 1; // ignore root
+		i < str.size(); i++ )
 	{
 		if ( str[i] == '/' && !dummy )
 		{
