@@ -71,6 +71,15 @@ void setup_index()
 	fprintf(s_process_log_fp, "[info]setup index from files list, count=%d\n", s_idxmap.size() );
 }
 
+string parse_attr(const string& str)
+{
+	string tmp = CUtils::str_trim(str);
+	string key = tmp.substr(0, str.find_first_of('='));
+	string value = tmp.substr(str.find_first_of('=')+1);
+
+	return key + "=" + "\"" + value + "\"";
+}
+
 void setup_tasks()
 {
 	// open index file
@@ -103,7 +112,7 @@ void setup_tasks()
 		// ∏Ωº” Ù–‘
 		for ( size_t i = 2; i < strs.size(); i++ )
 		{
-			attrs->attrs.push_back(strs[i]);
+			attrs->attrs.push_back(parse_attr(strs[i]));
 		}
 
 		s_tasks.push_back(attrs);
@@ -381,7 +390,7 @@ void setup_cdf(task_attr* task)
 		// write user attr
 		for ( size_t ui = 1; ui < strs.size(); ui++ )
 		{
-			fprintf(output_fp, "%s ", strs[ui].c_str());
+			fprintf(output_fp, "%s ", parse_attr(strs[ui]).c_str());
 		}
 
 		// write cell end

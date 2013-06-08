@@ -20,7 +20,10 @@ bool all_done = false;
 class Observer
 {
 public:
-	void on_finish(estatetype_t type, const std::string& name, eloaderror_t error_no, const props_t* props, const props_list_t* sub_props, void* context)
+	void on_finish(
+		estatetype_t type, const std::string& name, eloaderror_t error_no, 
+		const props_t* props, const props_list_t* ready_props, const props_list_t* pending_props,
+		void* context)
 	{
 		if ( type == e_state_event_alldone )
 		{
@@ -48,6 +51,27 @@ public:
 
 int main(int argc, char *argv[])
 {	
+	//timeval_t tmb;
+	//CUtils::gettimeofday(&tmb, NULL);
+	//char buf[1024];
+	//const char* line = "abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc";
+	//const char* aa = "123456";
+	//size_t s = 0;
+	//for ( size_t i = 0; i < 500000; i++ )
+	//{
+	//	int ai = atoi(aa);
+	//	s += ai;
+	//}
+
+	//timeval_t tme;
+	//CUtils::gettimeofday(&tme, NULL);
+
+	//printf("time:%dms \n", tme.tv_sec * 1000 + tme.tv_usec / 1000 - tmb.tv_sec * 1000 - tmb.tv_usec / 1000);
+
+	//system("pause");
+
+	//return 0;
+
 	Observer obs;
 
 	CProgressWatcher watcher;
@@ -74,7 +98,7 @@ int main(int argc, char *argv[])
 	//cells.register_observer(&on_finish, make_functor_g(on_finish));
 	cells->register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
 
-	cells->post_desire_cdf("_cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade, e_zip_none/*, NULL, &watcher*/);
+	cells->post_desire_cdf("_cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none/*, NULL, &watcher*/);
 		
 	while( !all_done )
 	{
@@ -84,7 +108,7 @@ int main(int argc, char *argv[])
 	}
 
 	all_done = false;
-	cells->post_desire_pkg("_pkg/res.zip", e_priority_default, NULL, &watcher);
+	//cells->post_desire_pkg("_pkg/res.zip", e_priority_default, NULL, &watcher);
 
 	//while( !all_done )
 	//{
