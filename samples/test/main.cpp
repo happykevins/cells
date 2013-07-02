@@ -49,29 +49,15 @@ public:
 	}
 };
 
+//
+//	run example:
+//		- use "cellstool" make your own resource. 1.build files 2.setup CDF
+//		- put your resource on http or ftp server
+//		- 
+//
+
 int main(int argc, char *argv[])
 {	
-	//timeval_t tmb;
-	//CUtils::gettimeofday(&tmb, NULL);
-	//char buf[1024];
-	//const char* line = "abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc,abc";
-	//const char* aa = "123456";
-	//size_t s = 0;
-	//for ( size_t i = 0; i < 500000; i++ )
-	//{
-	//	int ai = atoi(aa);
-	//	s += ai;
-	//}
-
-	//timeval_t tme;
-	//CUtils::gettimeofday(&tme, NULL);
-
-	//printf("time:%dms \n", tme.tv_sec * 1000 + tme.tv_usec / 1000 - tmb.tv_sec * 1000 - tmb.tv_usec / 1000);
-
-	//system("pause");
-
-	//return 0;
-
 	Observer obs;
 
 	CProgressWatcher watcher;
@@ -83,22 +69,20 @@ int main(int argc, char *argv[])
 	rule.max_download_speed = 1024 * 1024 * 10; 
 	rule.enable_ghost_mode = false;
 	rule.max_ghost_download_speed = 1024 * 1024;
-	rule.local_url = "./downloads/";
-	//rule.remote_urls.push_back("ftp://guest:guest@localhost/vo");
-	//rule.remote_urls.push_back("ftp://guest:guest@localhost/uploadz/");
-	rule.remote_urls.push_back("ftp://ftpuser:abcd.1234@10.248.232.13/Exchange/1-Private/kevin/cells_test/res");
+	rule.local_url = "./downloads/";	// local path
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/resource1");	// remote resource url1
+	rule.remote_urls.push_back("ftp://guest:guest@localhost/resource2");	// remote resource url2
 
 	CellsHandler* cells = cells_create(rule);
 	if ( !cells )
 	{
 		return 0;
 	}
-	//cells.suspend();
 
-	//cells.register_observer(&on_finish, make_functor_g(on_finish));
 	cells->register_observer(&obs, make_functor_m(&obs, &Observer::on_finish));
-
-	cells->post_desire_cdf("_cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none/*, NULL, &watcher*/);
+	
+	// require the "index.xml" CDF, and check/load files in CDF cascade
+	cells->post_desire_cdf("_cdf/index.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
 		
 	while( !all_done )
 	{
@@ -108,19 +92,12 @@ int main(int argc, char *argv[])
 	}
 
 	all_done = false;
-	//cells->post_desire_pkg("_pkg/res.zip", e_priority_default, NULL, &watcher);
 
-	//while( !all_done )
-	//{
-	//	CUtils::sleep(20);
-	//	if (!rule.auto_dispatch)
-	//		cells->tick_dispatch(0.02f);
-	//}
+	// require a single file
+	cells->post_desire_file("a_big_file.bin", e_priority_default, e_zip_zlib, NULL, &watcher);
 
-	//all_done = false;
-	//cells->post_desire_file("STHeiti Medium.ttc", e_priority_default, e_zip_zlib, NULL, &watcher);
-
-	//cells->post_desire_cdf("cdf/free.xml", e_priority_exclusive, e_cdf_loadtype_load_cascade, e_zip_none);
+	// require the "free.xml" CDF, only setup file index in the CDF cascade
+	cells->post_desire_cdf("cdf/free.xml", e_priority_exclusive, e_cdf_loadtype_index_cascade, e_zip_none);
 
 
 	while(true)
@@ -143,7 +120,6 @@ int main(int argc, char *argv[])
 	}
 
 	cells->remove_observer(&obs);
-	//cells->remove_observer(&on_finish);
 
 	cells_destroy(cells);
 
